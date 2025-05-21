@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParkEdge - Find Parking</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+</head>
+<body>
+    <header>
+        <h1>ParkEdge</h1>
+        <nav>
+            <a href="/map_view.html">Find Parking</a>
+            <a href="/list_space.html">List Your Space</a>
+        </nav>
+    </header>
+    <main>
+        <h2>Available Parking Spaces</h2>
+        <div id="map"></div>
+        <p id="status-message"></p>
+    </main>
+    <footer>
+        <p>&copy; 2025 ParkEdge</p>
+    </footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // Initialize the map (e.g., centered on a default location like San Francisco)
+            const map = L.map("map").setView([37.7749, -122.4194], 13);
+            const statusMessage = document.getElementById("status-message");
+
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            function fetchAndDisplaySpaces() {
+                fetch("/api/spaces")
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(spaces => {
+                        if (!spaces || spaces.length === 0) {
+                            statusMessage.textContent = "No parking spaces available at the moment.";
+                            return;
+                        }
+                        statusMessage.textContent = ""; // Clear message if spaces are found
+                        spaces.forEach(space => {
+                            if (space.is_booked) return; // Skip booked spaces
+
+                            const marker = L.marker([space.latitude, space.longitude]).addTo(map);
+                            let popupContent = `<b>Address:</b> ${space.address}<br>
+                                              <b>Price:</b> ${space.price}<br>`;
+                            
+                            const bookButton = document.createElement("button");
+                            bookButton.textContent = "Book Now";
+                            bookButton.className = "book-button";
+                            bookButton.onclick = () => bookSpace(space.id, marker, bookButton);
+                            
+                            const popupDiv = document.createElement("div");
+                            popupDiv.innerHTML = popupContent;
+                            popupDiv.appendChild(bookButton);
+
+                            marker.bindPopup(popupDiv);
+                        });
+                    })
+                    .catch(error => {
+                        console.error("Error fetching parking spaces:", error);
+                        statusMessage.textContent = "Error loading parking spaces. Please try again later.";
+                    });
+            }
+
+            function bookSpace(spaceId, marker, button) {
+                fetch(`/api/spaces/${spaceId}/book`, { method: "POST" })
+                    .then(response => {
+                        if (!response.ok) {
+                             response.json().then(err => {
+                                alert(`Error booking space: ${err.error || response.statusText}`);
+                             });
+                             throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(bookedSpace => {
+                        alert(`Space ${bookedSpace.address} booked successfully!`);
+                        // Update UI - e.g., change marker color or remove it, disable button
+                        marker.setOpacity(0.5); // Visually indicate it's booked
+                        button.textContent = "Booked";
+                        button.disabled = true;
+                        // Optionally, remove the marker or update its popup permanently
+                        marker.unbindPopup();
+                        marker.bindPopup(`<b>Address:</b> ${bookedSpace.address}<br><b>Status:</b> Booked`);
+                    })
+                    .catch(error => {
+                        console.error("Error booking space:", error);
+                        // Alert was handled in the !response.ok block for more specific messages
+                    });
+            }
+
+            fetchAndDisplaySpaces();
+        });
+    </script>
+</body>
+</html>
+
