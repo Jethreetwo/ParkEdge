@@ -60,8 +60,8 @@
             <div style="margin-top:15px;">
                  <h4>Edit Profile Details</h4>
                  <div class="info-item">
-                    <label for="phone-number-edit" class="info-label" style="display:inline-block; margin-right:10px;">Phone Number:</label>
-                    <input type="text" id="phone-number-edit" placeholder="Your phone number (optional)" style="width: 250px;">
+                    <label for="phone-number-edit" class="info-label">Phone Number:</label>
+                    <input type="text" id="phone-number-edit" placeholder="Your phone number (optional)">
                  </div>
                  <!-- Payment info edit is in its own section below -->
             </div>
@@ -89,13 +89,13 @@
             <div id="current-payment-info-display" style="margin-bottom: 10px; padding: 10px; background-color: #f0f0f0; border-radius: 4px; white-space: pre-wrap;">
                 Loading current payment info...
             </div>
-            <textarea id="payment-info-edit" rows="4" style="width: 95%; margin-bottom: 10px;" placeholder="Enter your payment details here..."></textarea>
+            <textarea id="payment-info-edit" rows="4" placeholder="Enter your payment details here..."></textarea>
             <!-- Button and status paragraph IDs will be updated by JS or directly here -->
         </div>
         
         <div class="profile-section" style="text-align: center;"> <!-- Centered save button -->
-             <button id="save-profile-button" style="padding: 10px 20px; font-size: 1em;">Save All Profile Details</button>
-             <p id="profile-status" style="margin-top: 10px; font-weight: bold;"></p>
+             <button id="save-profile-button" class="btn btn-primary">Save All Profile Details</button>
+             <!-- <p id="profile-status" style="margin-top: 10px; font-weight: bold;"></p> --> <!-- Removed as toast notifications will be used -->
         </div>
     </main>
 
@@ -166,22 +166,23 @@
                 const currentPhoneNumberDisplay = document.getElementById('current-phone-number-display');
                 if(currentPhoneNumberDisplay) currentPhoneNumberDisplay.textContent = "N/A"; // Check if exists before setting
                 document.getElementById('phone-number-edit').value = '';
-                document.getElementById('profile-status').innerHTML = '';
+                // document.getElementById('profile-status').innerHTML = ''; // Removed
             });
 
         // Event listener for saving profile details (payment info and phone number)
-        const saveProfileButton = document.getElementById('save-profile-button'); // NEW ID
+        const saveProfileButton = document.getElementById('save-profile-button'); 
         const paymentInfoEdit = document.getElementById('payment-info-edit');
         const phoneNumberEdit = document.getElementById('phone-number-edit');
-        const profileStatus = document.getElementById('profile-status'); // NEW ID
+        // const profileStatus = document.getElementById('profile-status'); // No longer needed for primary feedback
         const paymentInfoDisplay = document.getElementById('current-payment-info-display');
-        const currentPhoneNumberDisplay = document.getElementById('current-phone-number-display'); // Get this for UI update
+        const currentPhoneNumberDisplay = document.getElementById('current-phone-number-display'); 
 
-        if (saveProfileButton && paymentInfoEdit && phoneNumberEdit && profileStatus && paymentInfoDisplay && currentPhoneNumberDisplay) {
+        if (saveProfileButton && paymentInfoEdit && phoneNumberEdit && paymentInfoDisplay && currentPhoneNumberDisplay) { // Removed profileStatus from check
             saveProfileButton.addEventListener('click', async () => {
                 if (!currentUser) {
-                    profileStatus.textContent = "You must be logged in to save profile details.";
-                    profileStatus.style.color = "red";
+                    // profileStatus.textContent = "You must be logged in to save profile details."; // OLD
+                    // profileStatus.style.color = "red"; // OLD
+                    showToast("You must be logged in to save profile details.", "error"); // NEW
                     return;
                 }
                 
@@ -212,20 +213,49 @@
                         currentPhoneNumberDisplay.textContent = currentUser.phone_number || "Not provided";
                         phoneNumberEdit.value = currentUser.phone_number || "";
                         
-                        profileStatus.textContent = "Profile details saved successfully!";
-                        profileStatus.style.color = "green";
+                        // profileStatus.textContent = "Profile details saved successfully!"; // OLD
+                        // profileStatus.style.color = "green"; // OLD
+                        showToast("Profile details saved successfully!", "success"); // NEW
                     } else {
-                        profileStatus.textContent = `Error: ${responseData.error || 'Failed to save profile.'}`;
-                        profileStatus.style.color = "red";
+                        // profileStatus.textContent = `Error: ${responseData.error || 'Failed to save profile.'}`; // OLD
+                        // profileStatus.style.color = "red"; // OLD
+                        showToast(`Error: ${responseData.error || 'Failed to save profile.'}`, "error"); // NEW
                     }
                 } catch (error) {
                     console.error('Error saving profile details:', error);
-                    profileStatus.textContent = "An unexpected error occurred while saving profile details.";
-                    profileStatus.style.color = "red";
+                    // profileStatus.textContent = "An unexpected error occurred while saving profile details."; // OLD
+                    // profileStatus.style.color = "red"; // OLD
+                    showToast("An unexpected error occurred while saving profile details.", "error"); // NEW
                 }
             });
         }
     });
+
+    function showToast(message, type = 'info', duration = 3000) {
+        const existingToast = document.querySelector('.toast-notification');
+        if (existingToast) {
+            existingToast.remove(); // Remove any existing toast first
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast-notification ${type}`;
+        toast.textContent = message;
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 100); 
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 500); 
+        }, duration);
+    }
 
     async function loadListedSpaces() {
         const listedSpacesDiv = document.getElementById('listed-spaces-list');
@@ -246,7 +276,10 @@
             }
             const spaces = await response.json();
             if (spaces.length === 0) {
-                listedSpacesDiv.innerHTML = '<p>You have not listed any spaces yet.</p>';
+                listedSpacesDiv.innerHTML = `
+                    <p>You haven't listed any parking spaces yet.</p>
+                    <p><a href="/static/list_space.html" class="btn btn-primary">List Your First Space!</a></p>
+                `;
             } else {
                 listedSpacesDiv.innerHTML = ''; // Clear loading message
                 spaces.forEach(space => {
@@ -291,7 +324,10 @@
             }
             const bookings = await response.json();
             if (bookings.length === 0) {
-                bookingsListDiv.innerHTML = '<p>You have no bookings yet.</p>';
+                bookingsListDiv.innerHTML = `
+                    <p>You don't have any bookings yet.</p>
+                    <p><a href="/static/map_view.html" class="btn btn-primary">Find a Parking Space!</a></p>
+                `;
             } else {
                 bookingsListDiv.innerHTML = ''; // Clear loading message
                 bookings.forEach(booking => {

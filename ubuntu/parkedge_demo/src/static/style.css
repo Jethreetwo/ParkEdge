@@ -56,6 +56,39 @@ footer {
     width: 100%;
     margin-bottom: 20px;
     border: 1px solid #ccc;
+    position: relative; /* Needed for the absolute positioned loader to be contained */
+}
+
+/* === Map Loader Styles === */
+.map-loader {
+    position: absolute; /* Position over the map container */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent white overlay */
+    z-index: 1500; /* Above map tiles (usually low z-index) but below modals (2000 for toast) */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    /* Ensure this is hidden by default via inline style or CSS */
+}
+
+.loader-spinner {
+    border: 4px solid #f3f3f3; /* Light grey */
+    border-top: 4px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .book-button {
@@ -84,49 +117,54 @@ footer {
 }
 
 /* List Space Form Styles */
-#list-space-form div {
+/* Specific styles for #list-space-form div, label, input, small are removed as they will be covered by general form styles below */
+/* #list-space-form div might still need margin-bottom: 15px; if not covered by a .form-group style */
+#list-space-form div { /* Retaining this for now, can be replaced by a .form-group class if needed */
     margin-bottom: 15px;
-}
-
-#list-space-form label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-#list-space-form input[type="text"],
-#list-space-form input[type="number"] {
-    width: calc(100% - 22px); /* Account for padding and border */
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-sizing: border-box;
-}
-
-#list-space-form small {
-    display: block;
-    font-size: 0.8em;
-    color: #666;
-    margin-top: 3px;
-}
-
-#list-space-form button[type="submit"] {
-    background-color: #007bff;
-    color: white;
-    padding: 12px 20px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1em;
-}
-
-#list-space-form button[type="submit"]:hover {
-    background-color: #0056b3;
 }
 
 #form-message {
     margin-top: 15px;
     font-weight: bold;
+}
+
+/* #list-space-form button[type="submit"] no longer needs specific styling here if using .btn.btn-primary */
+/* We will add classes directly in HTML */
+
+/* === General Form Styling === */
+label {
+    display: block; /* Ensures label is on its own line */
+    margin-bottom: 5px; /* Adds space below labels */
+    font-weight: bold; /* Makes labels clearer */
+}
+
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="url"], /* Added for image_url */
+textarea,
+select {
+    width: 100%; /* Default to full width, can be overridden by specific form layouts */
+    padding: 8px 10px;
+    margin-bottom: 10px; /* Space below input fields */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Important for width: 100% */
+    font-size: 0.95em;
+}
+
+textarea {
+    min-height: 80px; /* Give textareas a decent default height */
+    vertical-align: top; /* Align with labels if inline-block */
+}
+
+/* Small helper text (like under image_url input) */
+small, .form-text {
+    display: block; /* Ensure it's on its own line */
+    font-size: 0.85em;
+    color: #666;
+    margin-top: -5px; /* Pull it slightly closer to the input above */
+    margin-bottom: 10px; /* Space it out before next element */
 }
 
 /* Responsive adjustments */
@@ -165,3 +203,92 @@ footer {
     color: white; /* Ensure text color remains on hover */
 }
 
+/* === Button Styles === */
+.btn {
+    padding: 8px 15px;
+    font-size: 0.95em;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none; /* For <a> tags styled as buttons */
+    display: inline-block; /* For <a> tags */
+    text-align: center;
+    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.btn-primary {
+    background-color: #007bff; /* Primary blue */
+    color: white;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-primary:disabled,
+.btn-primary.disabled { /* For <a> tags */
+    background-color: #ccc;
+    border-color: #ccc;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background-color: #6c757d; /* Secondary gray */
+    color: white;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+    border-color: #545b62;
+}
+
+/* Small button variant for less prominent actions */
+.btn-small {
+    padding: 3px 8px;
+    font-size: 0.85em;
+}
+
+/* === Toast Notification Styles === */
+.toast-notification {
+    position: fixed;
+    bottom: 20px; /* Or top: 20px; */
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 6px;
+    background-color: #333; /* Default dark background */
+    color: white;
+    font-size: 0.95em;
+    z-index: 2000; /* Ensure it's above other content, like modals (modal z-index is 1000) */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    opacity: 0; /* Start hidden */
+    visibility: hidden; /* Start hidden */
+    transition: opacity 0.5s, visibility 0.5s, bottom 0.5s; /* Or top 0.5s */
+}
+
+.toast-notification.show {
+    opacity: 1;
+    visibility: visible;
+    bottom: 40px; /* Slide up animation */
+    /* Or if using top: top: 40px; */
+}
+
+/* Different types of toasts (optional) */
+.toast-notification.success {
+    background-color: #28a745; /* Green for success */
+    color: white;
+}
+.toast-notification.error {
+    background-color: #dc3545; /* Red for error */
+    color: white;
+}
+
+.toast-notification.info {
+    background-color: #17a2b8; /* Blue for info */
+    color: white;
+}

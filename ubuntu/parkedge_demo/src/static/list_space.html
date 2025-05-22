@@ -47,8 +47,9 @@
                 <label for="image_url">Image URL (Optional):</label>
                 <input type="text" id="image_url" name="image_url">
                 <small>Enter a direct link to an image of the parking space.</small>
+                <img id="image-preview" src="#" alt="Image Preview" style="display: none; max-width: 200px; max-height: 200px; margin-top: 10px; border: 1px solid #ccc;">
             </div>
-            <button type="submit">List My Space</button>
+            <button type="submit" class="btn btn-primary" style="font-size: 1em; padding: 12px 20px;">List My Space</button> 
         </form>
         <p id="form-message"></p>
     </main>
@@ -99,6 +100,31 @@
                 });
             }
 
+            // Image Preview Logic
+            const imageUrlInput = document.getElementById('image_url');
+            const imagePreview = document.getElementById('image-preview');
+
+            if (imageUrlInput && imagePreview) {
+                imageUrlInput.addEventListener('input', function() {
+                    const url = this.value;
+                    if (url) {
+                        imagePreview.src = url;
+                        imagePreview.style.display = 'block';
+                    } else {
+                        imagePreview.style.display = 'none';
+                        imagePreview.src = "#"; // Reset src
+                    }
+                });
+
+                imagePreview.onerror = function() {
+                    imagePreview.style.display = 'none';
+                    imagePreview.src = "#"; // Reset src to avoid repeated error events
+                    console.error("Image preview failed to load for URL: " + this.src);
+                    // Optionally, show an alert or a more user-friendly message in formMessage
+                    // For now, just console log and hide.
+                };
+            }
+
             form.addEventListener("submit", (event) => {
                 event.preventDefault();
                 formMessage.textContent = "Submitting...";
@@ -138,6 +164,10 @@
                     formMessage.textContent = `Space listed successfully! Address: ${newSpace.address}`;
                     formMessage.style.color = "green";
                     form.reset();
+                    if(imagePreview) { // Also reset image preview on successful form submission
+                        imagePreview.style.display = 'none';
+                        imagePreview.src = "#";
+                    }
                 })
                 .catch(error => {
                     console.error("Error listing space:", error);

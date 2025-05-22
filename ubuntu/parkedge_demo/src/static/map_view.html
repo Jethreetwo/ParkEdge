@@ -55,6 +55,11 @@
                 <label for="price-unit-day">Per Day</label>
             </div>
         </div>
+        <!-- Map Loader HTML -->
+        <div id="map-loader" class="map-loader" style="display: none;">
+            <div class="loader-spinner"></div>
+            <p>Loading spaces...</p>
+        </div>
         <div id="map"></div>
         <p id="status-message"></p>
     </main>
@@ -167,7 +172,41 @@
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
         }
 
+        function showToast(message, type = 'info', duration = 3000) {
+            const existingToast = document.querySelector('.toast-notification');
+            if (existingToast) {
+                existingToast.remove(); // Remove any existing toast first
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast-notification ${type}`; // e.g., toast-notification success
+            toast.textContent = message;
+
+            document.body.appendChild(toast);
+
+            // Trigger the show animation
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100); // Small delay to allow DOM update before transition
+
+            // Hide and remove the toast after 'duration'
+            setTimeout(() => {
+                toast.classList.remove('show');
+                // Remove the element after the fade out transition completes
+                setTimeout(() => {
+                    if (toast.parentElement) { // Check if it hasn't been removed already
+                        toast.remove();
+                    }
+                }, 500); // Should match the transition duration in CSS
+            }, duration);
+        }
+
         async function fetchAndDisplaySpaces() {
+            const mapLoader = document.getElementById('map-loader');
+            if (mapLoader) {
+                mapLoader.style.display = 'flex';
+            }
+
             // Clear existing space markers
             spaceMarkers.forEach(marker => marker.remove());
             spaceMarkers = [];
@@ -255,8 +294,9 @@
                     if (!space.is_booked) {
                         const bookButton = document.createElement("button");
                         bookButton.textContent = "Book Now";
-                        bookButton.className = "book-button";
-                        bookButton.onclick = () => bookSpace(space.id, marker, bookButton); // marker and button passed for immediate UI update
+                        // Apply new classes: btn, btn-primary, and retain book-button if it has specific non-overlapping styles
+                        bookButton.className = "btn btn-primary book-button"; 
+                        bookButton.onclick = () => bookSpace(space.id, marker, bookButton); 
                         popupDiv.appendChild(bookButton);
                     } else {
                         const bookedText = document.createElement("p");
@@ -268,17 +308,22 @@
                     
                     const viewReviewsButton = document.createElement("button");
                     viewReviewsButton.textContent = "View Reviews";
-                    viewReviewsButton.className = "view-reviews-button";
-                    viewReviewsButton.style.marginLeft = "5px";
+                    // Apply new classes: btn, btn-secondary, btn-small, and retain view-reviews-button if specific non-overlapping styles
+                    viewReviewsButton.className = "btn btn-secondary btn-small view-reviews-button"; 
+                    viewReviewsButton.style.marginLeft = "5px"; // Keep margin for spacing
                     viewReviewsButton.onclick = () => openReviewModal(space.id, space.address);
                     popupDiv.appendChild(viewReviewsButton);
 
                     const googleMapsButton = document.createElement("a");
                     googleMapsButton.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(space.address)}`;
                     googleMapsButton.textContent = "Get Directions";
-                    googleMapsButton.className = "google-maps-button"; // Ensure this class is applied
-                    googleMapsButton.target = "_blank"; // Open in a new tab
-                    // All inline styles removed, relying on the .google-maps-button CSS class
+                    // Apply new classes: btn, and retain google-maps-button for its specific color/icon or other overrides
+                    googleMapsButton.className = "btn google-maps-button"; 
+                    googleMapsButton.target = "_blank"; 
+                    // Note: .google-maps-button in CSS might need adjustment to ensure compatibility with .btn,
+                    // or specific styles like background-color might be added to .google-maps-button directly.
+                    // For now, just adding .btn as requested for base structure.
+                    // Margin-left is already in .google-maps-button CSS.
                     popupDiv.appendChild(googleMapsButton);
 
                     marker.bindPopup(popupDiv);
@@ -301,12 +346,16 @@
             } catch (error) {
                 console.error("Error fetching parking spaces:", error);
                 if (statusMessage) statusMessage.textContent = "Error loading parking spaces. Please try again later.";
+            } finally {
+                if (mapLoader) {
+                    mapLoader.style.display = 'none';
+                }
             }
         }
 
         async function bookSpace(spaceId, marker, button) { // Made async to align with fetch
             if (!currentUser) {
-                alert("Please login to book a space.");
+                showToast("Please login to book a space.", "info"); // NEW
                 return;
             }
 
@@ -319,7 +368,7 @@
                 const responseData = await response.json(); // Try to get JSON regardless of response.ok
 
                 if (!response.ok) {
-                    alert(`Error booking space: ${responseData.error || response.statusText}`);
+                    showToast(`Error booking space: ${responseData.error || 'Unknown error, please try again.'}`, "error"); // NEW
                     // If booking failed (e.g. space just got booked), refresh markers to reflect current state
                     if (response.status === 409 || response.status === 404) { // 409 Conflict (already booked), 404 Not Found
                         fetchAndDisplaySpaces();
@@ -327,8 +376,7 @@
                     return; // Stop further processing
                 }
                 
-                // Successful booking based on original logic
-                alert(`Space ${responseData.address} booked successfully!`);
+                showToast(`Space ${responseData.address} booked successfully!`, "success"); // NEW
                 
                 // Visually update the specific marker immediately
                 if (marker) {
@@ -359,7 +407,7 @@
 
             } catch (error) {
                 console.error("Error booking space:", error);
-                alert("An unexpected error occurred while booking. Please try again.");
+                showToast("An unexpected error occurred while booking. Please try again.", "error"); // NEW
             }
         }
         
@@ -390,9 +438,10 @@
                             
                             let reviewActions = '';
                             if (currentUser && (currentUser.email === review.user_email || currentUser.id === review.user_id)) { 
+                                // Apply new classes to review action buttons
                                 reviewActions = `
-                                    <button onclick="showEditReviewForm(${review.id}, ${spaceId}, '${spaceAddress}', ${review.rating}, '${review.comment.replace(/'/g, "\\'")}')">Edit</button>
-                                    <button onclick="handleDeleteReview(${review.id}, ${spaceId}, '${spaceAddress}')">Delete</button>
+                                    <button class="btn btn-secondary btn-small" onclick="showEditReviewForm(${review.id}, ${spaceId}, '${spaceAddress}', ${review.rating}, '${review.comment.replace(/'/g, "\\'")}')">Edit</button>
+                                    <button class="btn btn-secondary btn-small" style="margin-left: 5px;" onclick="handleDeleteReview(${review.id}, ${spaceId}, '${spaceAddress}')">Delete</button>
                                 `;
                             }
 
@@ -438,7 +487,7 @@
                             </div>
                             <input type="hidden" name="rating" id="add-rating-input-${spaceId}" value="0">
                             <textarea name="comment" placeholder="Your comment (optional)" rows="3" style="width: 95%; margin-top:10px;"></textarea>
-                            <button type="submit">Submit Review</button>
+                            <button type="submit" class="btn btn-primary" style="margin-top:10px;">Submit Review</button>
                         `;
                         formContainer.appendChild(form);
                         setupStarRating(document.getElementById(`add-star-rating-${spaceId}`), document.getElementById(`add-rating-input-${spaceId}`));
@@ -494,18 +543,18 @@
                 });
                 const body = await response.json();
                 if (response.status === 201) {
-                    alert("Review submitted successfully!");
+                    showToast("Review submitted successfully!", "success"); // Assuming showToast is available or will be added
                     openReviewModal(spaceId, spaceAddress); 
                     fetchAndDisplaySpaces(); 
                 } else if (response.status === 409) { 
-                    alert(`Error: ${body.error}. You might want to edit your existing review.`);
+                    showToast(`Error: ${body.error}. You might want to edit your existing review.`, "error");
                      openReviewModal(spaceId, spaceAddress); 
                 } else {
-                    alert(`Error submitting review: ${body.error || 'Unknown error'}`);
+                    showToast(`Error submitting review: ${body.error || 'Unknown error'}`, "error");
                 }
             } catch (error) {
                  console.error('Error submitting review:', error);
-                 alert('An unexpected error occurred. Please try again.');
+                 showToast('An unexpected error occurred. Please try again.', "error");
             }
         }
 
@@ -525,8 +574,8 @@
                     </div>
                     <input type="hidden" name="rating" id="edit-rating-input-${reviewId}" value="${currentRating}">
                     <textarea name="comment" rows="3" style="width: 95%; margin-top:10px;">${currentComment}</textarea>
-                    <button type="submit">Save Changes</button>
-                    <button type="button" onclick="cancelEditReview('${spaceId}', '${spaceAddress}')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="margin-right: 5px;">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" onclick="cancelEditReview('${spaceId}', '${spaceAddress}')">Cancel</button>
                 </form>
             `;
             setupStarRating(document.getElementById(`edit-star-rating-${reviewId}`), document.getElementById(`edit-rating-input-${reviewId}`));
@@ -561,26 +610,26 @@
                 });
                 const body = await response.json();
                 if (response.status === 200) {
-                    alert("Review updated successfully!");
+                    showToast("Review updated successfully!", "success"); // Assuming showToast
                     const addReviewFormContainer = document.getElementById('add-review-form-container');
                     addReviewFormContainer.style.display = 'block';
                     openReviewModal(spaceId, spaceAddress); 
                     fetchAndDisplaySpaces(); 
                 } else {
-                    alert(`Error updating review: ${body.error || 'Unknown error'}`);
+                    showToast(`Error updating review: ${body.error || 'Unknown error'}`, "error");
                 }
             } catch(error) {
                 console.error('Error updating review:', error);
-                alert('An unexpected error occurred while updating. Please try again.');
+                showToast('An unexpected error occurred while updating. Please try again.', "error");
             }
         }
 
         async function handleDeleteReview(reviewId, spaceId, spaceAddress) { // Made async
             if (!currentUser) {
-                alert("Please login to delete a review.");
+                showToast("Please login to delete a review.", "info"); // Assuming showToast
                 return;
             }
-            if (!confirm("Are you sure you want to delete this review? This action cannot be undone.")) {
+            if (!confirm("Are you sure you want to delete this review? This action cannot be undone.")) { // confirm is fine here
                 return;
             }
             try {
@@ -588,16 +637,16 @@
                     method: 'DELETE'
                 });
                 if (response.status === 204) { 
-                    alert("Review deleted successfully!");
+                    showToast("Review deleted successfully!", "success"); // Assuming showToast
                     openReviewModal(spaceId, spaceAddress); 
                     fetchAndDisplaySpaces(); 
                 } else {
                     const data = await response.json();
-                    alert(`Error deleting review: ${data.error || 'Unknown error'}`);
+                    showToast(`Error deleting review: ${data.error || 'Unknown error'}`, "error");
                 }
             } catch (error) {
                 console.error('Error deleting review:', error);
-                alert('An unexpected error occurred while deleting. Please try again.');
+                showToast('An unexpected error occurred while deleting. Please try again.', "error");
             }
         }
 
