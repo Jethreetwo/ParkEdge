@@ -40,10 +40,12 @@ with app.app_context():
 # Import and register blueprints
 from src.routes.spaces import spaces_bp
 from src.routes.auth import auth_bp 
-from src.routes.reviews import reviews_bp 
+from src.routes.reviews import reviews_bp
+from src.routes.booking_routes import bookings_bp # Added this line
 app.register_blueprint(spaces_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/auth') 
 app.register_blueprint(reviews_bp, url_prefix='/api') 
+app.register_blueprint(bookings_bp) # Added this line, url_prefix is in the blueprint itself
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - ParkEdge</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Add any specific styles for profile page if needed later -->
+    <style>
+        .profile-section {
+            background-color: #fff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .profile-section h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            color: #333;
+        }
+        .info-item, .space-item, .booking-item {
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .info-item:last-child, .space-item:last-child, .booking-item:last-child {
+            border-bottom: none;
+        }
+        .info-label { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ParkEdge</h1>
+        <nav>
+            <a href="/static/map_view.html">Find Parking</a>
+            <a href="/static/list_space.html">List Your Space</a>
+            <a href="/static/profile.html">My Profile</a>
+            <div id="user-auth-section" style="display: inline-block; margin-left: 20px;">
+                <a href="/auth/login/google" id="login-button" style="display:none;">Login with Google</a>
+                <div id="user-info" style="display:none;">
+                    <img id="profile-pic-display" src="" alt="Profile" style="width:30px; height:30px; border-radius:50%; vertical-align: middle;">
+                    <span id="username-display" style="margin-left: 5px; vertical-align: middle;"></span>
+                    <a href="/auth/logout" id="logout-button" style="margin-left: 10px; vertical-align: middle;">Logout</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="profile-section">
+            <h2>My Profile Information</h2>
+            <div id="profile-details">
+                <p>Loading profile...</p>
+                <!-- Profile details will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <h2>My Listed Parking Spaces</h2>
+            <div id="listed-spaces-list">
+                <p>Loading listed spaces...</p>
+                <!-- Listed spaces will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <h2>My Bookings</h2>
+            <div id="bookings-list">
+                <p>Loading bookings...</p>
+                <!-- Bookings will be populated by JavaScript -->
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 ParkEdge</p>
+    </footer>
+
+    <script>
+    let currentUser = null;
+    document.addEventListener("DOMContentLoaded", () => {
+        const loginButton = document.getElementById('login-button');
+        const userInfoDiv = document.getElementById('user-info');
+        const usernameDisplay = document.getElementById('username-display');
+        const profilePicDisplay = document.getElementById('profile-pic-display');
+        const profileDetailsDiv = document.getElementById('profile-details');
+
+        fetch('/auth/status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.authenticated) {
+                    currentUser = data.user;
+                    userInfoDiv.style.display = 'inline-block';
+                    loginButton.style.display = 'none';
+                    usernameDisplay.textContent = currentUser.username || currentUser.email;
+                    if (currentUser.profile_pic) {
+                        profilePicDisplay.src = currentUser.profile_pic;
+                    } else {
+                        profilePicDisplay.style.display = 'none';
+                    }
+                    profileDetailsDiv.innerHTML = `
+                        <div class="info-item"><span class="info-label">Username:</span> ${currentUser.username || 'Not set'}</div>
+                        <div class="info-item"><span class="info-label">Email:</span> ${currentUser.email}</div>
+                    `;
+                    loadListedSpaces();
+                    loadUserBookings();
+                } else {
+                    currentUser = null;
+                    loginButton.style.display = 'inline-block';
+                    userInfoDiv.style.display = 'none';
+                    profileDetailsDiv.innerHTML = '<p>Please <a href="/auth/login/google">login</a> to view your profile.</p>';
+                    document.getElementById('listed-spaces-list').innerHTML = '<p>Please login to view your listed spaces.</p>';
+                    document.getElementById('bookings-list').innerHTML = '<p>Please login to view your bookings.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching auth status:', error);
+                loginButton.style.display = 'inline-block';
+                userInfoDiv.style.display = 'none';
+                profileDetailsDiv.innerHTML = '<p>Error loading profile information. Please try again later.</p>';
+            });
+    });
+
+    async function loadListedSpaces() {
+        const listedSpacesDiv = document.getElementById('listed-spaces-list');
+        if (!currentUser) { // Should be already handled by DOMContentLoaded check, but good practice
+            listedSpacesDiv.innerHTML = '<p>Please login to view your listed spaces.</p>';
+            return;
+        }
+        try {
+            // Note: The API endpoint was defined in spaces.py as /me/spaces, 
+            // and the blueprint is /api. So the path is /api/me/spaces
+            const response = await fetch('/api/me/spaces');
+            if (!response.ok) {
+                if (response.status === 401) { // Unauthorized
+                     listedSpacesDiv.innerHTML = '<p>Please login to view your listed spaces.</p>';
+                     return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const spaces = await response.json();
+            if (spaces.length === 0) {
+                listedSpacesDiv.innerHTML = '<p>You have not listed any spaces yet.</p>';
+            } else {
+                listedSpacesDiv.innerHTML = ''; // Clear loading message
+                spaces.forEach(space => {
+                    const spaceElement = document.createElement('div');
+                    spaceElement.className = 'space-item';
+                    spaceElement.innerHTML = `
+                        <p><strong>Address:</strong> ${space.address}</p>
+                        <p><strong>Price:</strong> ${space.price}</p>
+                        <p><strong>Average Rating:</strong> ${space.average_rating ? space.average_rating.toFixed(1) + '/5' : 'Not rated'}</p>
+                        <p><strong>Booked:</strong> ${space.is_booked ? 'Yes' : 'No'}</p>
+                        <!-- <p><a href="/edit_space.html?id=${space.id}">Manage Space</a></p> -->
+                    `;
+                    listedSpacesDiv.appendChild(spaceElement);
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching listed spaces:', error);
+            listedSpacesDiv.innerHTML = '<p>Error loading your listed spaces. Please try again later.</p>';
+        }
+    }
+
+    async function loadUserBookings() {
+        const bookingsListDiv = document.getElementById('bookings-list');
+        if (!currentUser) {
+            bookingsListDiv.innerHTML = '<p>Please login to view your bookings.</p>';
+            return;
+        }
+        try {
+            const response = await fetch('/api/bookings/me'); // Endpoint defined in bookings_bp
+            if (!response.ok) {
+                 if (response.status === 401) { // Unauthorized
+                     bookingsListDiv.innerHTML = '<p>Please login to view your bookings.</p>';
+                     return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const bookings = await response.json();
+            if (bookings.length === 0) {
+                bookingsListDiv.innerHTML = '<p>You have no bookings yet.</p>';
+            } else {
+                bookingsListDiv.innerHTML = ''; // Clear loading message
+                bookings.forEach(booking => {
+                    const bookingElement = document.createElement('div');
+                    bookingElement.className = 'booking-item';
+                    bookingElement.innerHTML = `
+                        <p><strong>Space Address:</strong> ${booking.space_address || 'N/A (Space details may have changed)'}</p>
+                        <p><strong>Booking Time:</strong> ${new Date(booking.booking_time).toLocaleString()}</p>
+                        <p><strong>Status:</strong> ${booking.status}</p>
+                        <!-- <p><a href="/booking_details.html?id=${booking.id}">View Details</a></p> -->
+                    `;
+                    bookingsListDiv.appendChild(bookingElement);
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching user bookings:', error);
+            bookingsListDiv.innerHTML = '<p>Error loading your bookings. Please try again later.</p>';
+        }
+    }
+    </script>
+</body>
+</html>
