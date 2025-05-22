@@ -54,6 +54,16 @@
             <div id="profile-details">
                 <p>Loading profile...</p>
                 <!-- Profile details will be populated by JavaScript -->
+                <!-- Phone number will be added here by JS or can be static HTML structure then populated -->
+            </div>
+            <!-- Edit fields for profile details -->
+            <div style="margin-top:15px;">
+                 <h4>Edit Profile Details</h4>
+                 <div class="info-item">
+                    <label for="phone-number-edit" class="info-label" style="display:inline-block; margin-right:10px;">Phone Number:</label>
+                    <input type="text" id="phone-number-edit" placeholder="Your phone number (optional)" style="width: 250px;">
+                 </div>
+                 <!-- Payment info edit is in its own section below -->
             </div>
         </div>
 
@@ -71,6 +81,21 @@
                 <p>Loading bookings...</p>
                 <!-- Bookings will be populated by JavaScript -->
             </div>
+        </div>
+
+        <div class="profile-section">
+            <h2>Payment Information</h2>
+            <p>Provide instructions for how others can pay you directly (e.g., Venmo: @YourName, Zelle: your@email.com).</p>
+            <div id="current-payment-info-display" style="margin-bottom: 10px; padding: 10px; background-color: #f0f0f0; border-radius: 4px; white-space: pre-wrap;">
+                Loading current payment info...
+            </div>
+            <textarea id="payment-info-edit" rows="4" style="width: 95%; margin-bottom: 10px;" placeholder="Enter your payment details here..."></textarea>
+            <!-- Button and status paragraph IDs will be updated by JS or directly here -->
+        </div>
+        
+        <div class="profile-section" style="text-align: center;"> <!-- Centered save button -->
+             <button id="save-profile-button" style="padding: 10px 20px; font-size: 1em;">Save All Profile Details</button>
+             <p id="profile-status" style="margin-top: 10px; font-weight: bold;"></p>
         </div>
     </main>
 
@@ -103,7 +128,22 @@
                     profileDetailsDiv.innerHTML = `
                         <div class="info-item"><span class="info-label">Username:</span> ${currentUser.username || 'Not set'}</div>
                         <div class="info-item"><span class="info-label">Email:</span> ${currentUser.email}</div>
+                        <div class="info-item">
+                            <span class="info-label">Phone Number:</span>
+                            <span id="current-phone-number-display">${currentUser.phone_number || "Not provided"}</span>
+                        </div>
                     `;
+                    
+                    // Populate payment info display and textarea
+                    const paymentInfoDisplay = document.getElementById('current-payment-info-display');
+                    const paymentInfoEdit = document.getElementById('payment-info-edit');
+                    paymentInfoDisplay.textContent = currentUser.payment_info || "No payment information provided yet.";
+                    paymentInfoEdit.value = currentUser.payment_info || ""; 
+                    
+                    // Populate phone number edit field
+                    const phoneNumberEdit = document.getElementById('phone-number-edit');
+                    phoneNumberEdit.value = currentUser.phone_number || "";
+
                     loadListedSpaces();
                     loadUserBookings();
                 } else {
@@ -120,7 +160,71 @@
                 loginButton.style.display = 'inline-block';
                 userInfoDiv.style.display = 'none';
                 profileDetailsDiv.innerHTML = '<p>Error loading profile information. Please try again later.</p>';
+                // Also clear payment and phone sections if auth fails
+                document.getElementById('current-payment-info-display').innerHTML = '';
+                document.getElementById('payment-info-edit').value = '';
+                const currentPhoneNumberDisplay = document.getElementById('current-phone-number-display');
+                if(currentPhoneNumberDisplay) currentPhoneNumberDisplay.textContent = "N/A"; // Check if exists before setting
+                document.getElementById('phone-number-edit').value = '';
+                document.getElementById('profile-status').innerHTML = '';
             });
+
+        // Event listener for saving profile details (payment info and phone number)
+        const saveProfileButton = document.getElementById('save-profile-button'); // NEW ID
+        const paymentInfoEdit = document.getElementById('payment-info-edit');
+        const phoneNumberEdit = document.getElementById('phone-number-edit');
+        const profileStatus = document.getElementById('profile-status'); // NEW ID
+        const paymentInfoDisplay = document.getElementById('current-payment-info-display');
+        const currentPhoneNumberDisplay = document.getElementById('current-phone-number-display'); // Get this for UI update
+
+        if (saveProfileButton && paymentInfoEdit && phoneNumberEdit && profileStatus && paymentInfoDisplay && currentPhoneNumberDisplay) {
+            saveProfileButton.addEventListener('click', async () => {
+                if (!currentUser) {
+                    profileStatus.textContent = "You must be logged in to save profile details.";
+                    profileStatus.style.color = "red";
+                    return;
+                }
+                
+                const newPaymentInfo = paymentInfoEdit.value;
+                const newPhoneNumber = phoneNumberEdit.value;
+
+                const profileData = {
+                    payment_info: newPaymentInfo,
+                    phone_number: newPhoneNumber
+                };
+
+                try {
+                    // Endpoint is /api/users/me/profile as defined in user.py (assuming user_bp is registered with /api/users)
+                    const response = await fetch('/api/users/me/profile', { 
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(profileData)
+                    });
+                    const responseData = await response.json();
+                    if (response.ok) {
+                        currentUser.payment_info = responseData.payment_info; 
+                        currentUser.phone_number = responseData.phone_number;
+
+                        paymentInfoDisplay.textContent = currentUser.payment_info || "No payment information provided yet.";
+                        paymentInfoEdit.value = currentUser.payment_info || ""; 
+                        currentPhoneNumberDisplay.textContent = currentUser.phone_number || "Not provided";
+                        phoneNumberEdit.value = currentUser.phone_number || "";
+                        
+                        profileStatus.textContent = "Profile details saved successfully!";
+                        profileStatus.style.color = "green";
+                    } else {
+                        profileStatus.textContent = `Error: ${responseData.error || 'Failed to save profile.'}`;
+                        profileStatus.style.color = "red";
+                    }
+                } catch (error) {
+                    console.error('Error saving profile details:', error);
+                    profileStatus.textContent = "An unexpected error occurred while saving profile details.";
+                    profileStatus.style.color = "red";
+                }
+            });
+        }
     });
 
     async function loadListedSpaces() {

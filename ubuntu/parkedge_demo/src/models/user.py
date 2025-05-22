@@ -9,6 +9,8 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(120), unique=True, nullable=False)
     google_id = db.Column(db.String(120), unique=True, nullable=True)
     profile_pic = db.Column(db.String(255), nullable=True)
+    payment_info = db.Column(db.Text, nullable=True)
+    phone_number = db.Column(db.String(30), nullable=True) # Max length 30 for international numbers + formatting
 
     reviews = db.relationship('Review', backref='user', lazy=True)
 
@@ -22,5 +24,7 @@ class User(db.Model, UserMixin):
             'email': self.email,
             'google_id': self.google_id,
             'profile_pic': self.profile_pic,
-            'review_ids': [review.id for review in self.reviews] # Optional: list review IDs
+            'payment_info': self.payment_info,
+            'phone_number': self.phone_number, # Add this line
+            'review_ids': [review.id for review in self.reviews] 
         }

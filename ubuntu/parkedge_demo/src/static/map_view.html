@@ -39,6 +39,21 @@
                 <option value="4">4+ Stars</option>
                 <option value="5">5 Stars</option>
             </select>
+            <!-- New Price Filter Elements -->
+            <div style="margin-top: 10px;">
+                <label for="max-price-slider" style="margin-right: 5px;">Max Price:</label>
+                <input type="range" id="max-price-slider" name="max-price-slider" min="0" max="200" value="200" style="width: 150px; vertical-align: middle;">
+                <span id="max-price-display" style="margin-left: 5px;">$200</span>
+            </div>
+            <div style="margin-top: 5px;">
+                <label style="margin-right: 5px;">Price Unit Filter:</label>
+                <input type="radio" id="price-unit-any" name="price_unit_filter" value="any" checked>
+                <label for="price-unit-any">Any Unit</label>
+                <input type="radio" id="price-unit-hour" name="price_unit_filter" value="hour" style="margin-left: 10px;">
+                <label for="price-unit-hour">Per Hour</label>
+                <input type="radio" id="price-unit-day" name="price_unit_filter" value="day" style="margin-left: 10px;">
+                <label for="price-unit-day">Per Day</label>
+            </div>
         </div>
         <div id="map"></div>
         <p id="status-message"></p>
@@ -115,6 +130,22 @@
             // Event listeners for search and filter
             document.getElementById('address-search').addEventListener('input', fetchAndDisplaySpaces);
             document.getElementById('rating-filter').addEventListener('change', fetchAndDisplaySpaces);
+
+            // Event listeners for new price filters
+            const maxPriceSlider = document.getElementById('max-price-slider');
+            const maxPriceDisplay = document.getElementById('max-price-display');
+
+            if (maxPriceSlider && maxPriceDisplay) {
+                maxPriceSlider.addEventListener('input', function() {
+                    maxPriceDisplay.textContent = '$' + this.value;
+                });
+                maxPriceSlider.addEventListener('change', fetchAndDisplaySpaces); // Filter on release
+            }
+
+            const priceUnitRadioButtons = document.querySelectorAll('input[name="price_unit_filter"]');
+            priceUnitRadioButtons.forEach(radio => {
+                radio.addEventListener('change', fetchAndDisplaySpaces);
+            });
         });
 
         // Helper function to render stars
@@ -152,6 +183,8 @@
 
                 const searchTerm = document.getElementById('address-search').value.toLowerCase();
                 const minRating = parseInt(document.getElementById('rating-filter').value, 10);
+                const maxPrice = parseFloat(document.getElementById('max-price-slider').value);
+                const selectedPriceUnitFilter = document.querySelector('input[name="price_unit_filter"]:checked').value;
 
                 const filteredSpaces = allSpaces.filter(space => {
                     const matchesSearchTerm = !searchTerm || (space.address && space.address.toLowerCase().includes(searchTerm));
@@ -164,7 +197,21 @@
                             matchesRating = space.average_rating >= minRating;
                         }
                     }
-                    return matchesSearchTerm && matchesRating;
+
+                    let matchesPrice = true; 
+                    // Unit filter
+                    if (selectedPriceUnitFilter !== 'any') {
+                        if (space.price_unit !== selectedPriceUnitFilter) {
+                            matchesPrice = false;
+                        }
+                    }
+                    // Max price filter (only if unit matches or unit filter is 'any')
+                    // Also check if price_amount is valid before comparison
+                    if (matchesPrice && (space.price_amount === null || space.price_amount === undefined || space.price_amount > maxPrice)) {
+                        matchesPrice = false;
+                    }
+                    
+                    return matchesSearchTerm && matchesRating && matchesPrice;
                 });
                 
                 if (!filteredSpaces || filteredSpaces.length === 0) {
@@ -229,18 +276,27 @@
                     const googleMapsButton = document.createElement("a");
                     googleMapsButton.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(space.address)}`;
                     googleMapsButton.textContent = "Get Directions";
-                    googleMapsButton.className = "google-maps-button"; // For styling
+                    googleMapsButton.className = "google-maps-button"; // Ensure this class is applied
                     googleMapsButton.target = "_blank"; // Open in a new tab
-                    googleMapsButton.style.marginLeft = "5px"; 
-                    // Basic button-like styling for consistency
-                    googleMapsButton.style.textDecoration = "none";
-                    googleMapsButton.style.padding = "3px 6px"; // Adjusted padding to match other buttons
-                    googleMapsButton.style.backgroundColor = "#4CAF50"; // A generic green, can be changed
-                    googleMapsButton.style.color = "white";
-                    googleMapsButton.style.borderRadius = "3px"; // Adjusted border radius
+                    // All inline styles removed, relying on the .google-maps-button CSS class
                     popupDiv.appendChild(googleMapsButton);
 
                     marker.bindPopup(popupDiv);
+
+                    // Bind price tooltip to marker
+                    let priceTooltipString = "N/A";
+                    if (space.price_amount !== null && space.price_amount !== undefined && space.price_unit) {
+                        const amount = space.price_amount % 1 === 0 ? space.price_amount.toFixed(0) : space.price_amount.toFixed(2);
+                        const unitChar = space.price_unit === 'hour' ? 'h' : (space.price_unit === 'day' ? 'd' : space.price_unit);
+                        priceTooltipString = `$${amount}/${unitChar}`;
+                    }
+                    marker.bindTooltip(priceTooltipString, { 
+                        permanent: true, 
+                        direction: 'top', 
+                        offset: [0, -15], 
+                        className: 'price-tooltip' 
+                    }).openTooltip();
+
                 });
             } catch (error) {
                 console.error("Error fetching parking spaces:", error);
@@ -581,6 +637,15 @@
         .review-item:last-child { border-bottom: none; }
         .review-header { font-weight: bold; }
         .review-actions button { font-size: 0.8em; padding: 3px 6px; margin-left: 5px; }
+        .price-tooltip {
+            background-color: rgba(255, 255, 255, 0.85); /* Semi-transparent white background */
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 3px 6px;
+            font-size: 0.9em;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
     </style>
 </body>
 </html>

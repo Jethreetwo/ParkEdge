@@ -148,3 +148,20 @@ footer {
     }
 }
 
+.google-maps-button {
+    margin-left: 5px;
+    text-decoration: none;
+    padding: 3px 6px; /* Consistent with other small buttons */
+    background-color: #4CAF50; /* Green, similar to book button, or use #4285F4 for Google Blue */
+    color: white;
+    border-radius: 3px;
+    font-size: 0.9em; /* Match other button text if needed */
+    display: inline-block; /* Ensures padding and background are applied correctly */
+    line-height: normal; /* Ensure text aligns well */
+}
+
+.google-maps-button:hover {
+    background-color: #45a049; /* Darker shade for hover */
+    color: white; /* Ensure text color remains on hover */
+}
+
