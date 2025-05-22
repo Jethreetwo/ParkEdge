@@ -191,8 +191,15 @@
                         ratingDisplay = `(${space.review_ids.length} reviews)`;
                     }
 
+                    let priceDisplayString = "N/A";
+                    if (space.price_amount !== null && space.price_amount !== undefined && space.price_unit) {
+                        priceDisplayString = `$${space.price_amount.toFixed(2)} / ${space.price_unit}`;
+                    } else if (space.price) { // Fallback for old data structure if necessary
+                        priceDisplayString = space.price;
+                    }
+
                     let popupContent = `<b>Address:</b> ${space.address}<br>
-                                      <b>Price:</b> ${space.price}<br>
+                                      <b>Price:</b> ${priceDisplayString}<br>
                                       <b>Rating:</b> ${ratingDisplay}<br>`;
                     
                     const popupDiv = document.createElement("div");
@@ -218,6 +225,20 @@
                     viewReviewsButton.style.marginLeft = "5px";
                     viewReviewsButton.onclick = () => openReviewModal(space.id, space.address);
                     popupDiv.appendChild(viewReviewsButton);
+
+                    const googleMapsButton = document.createElement("a");
+                    googleMapsButton.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(space.address)}`;
+                    googleMapsButton.textContent = "Get Directions";
+                    googleMapsButton.className = "google-maps-button"; // For styling
+                    googleMapsButton.target = "_blank"; // Open in a new tab
+                    googleMapsButton.style.marginLeft = "5px"; 
+                    // Basic button-like styling for consistency
+                    googleMapsButton.style.textDecoration = "none";
+                    googleMapsButton.style.padding = "3px 6px"; // Adjusted padding to match other buttons
+                    googleMapsButton.style.backgroundColor = "#4CAF50"; // A generic green, can be changed
+                    googleMapsButton.style.color = "white";
+                    googleMapsButton.style.borderRadius = "3px"; // Adjusted border radius
+                    popupDiv.appendChild(googleMapsButton);
 
                     marker.bindPopup(popupDiv);
                 });

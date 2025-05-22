@@ -31,17 +31,22 @@
                 <input type="text" id="address" name="address" required>
             </div>
             <div>
-                <label for="latitude">Latitude:</label>
-                <input type="number" id="latitude" name="latitude" step="any" required>
-                <small>Tip: Use Google Maps to find coordinates.</small>
+                <label for="price_amount">Price Amount:</label>
+                <input type="range" id="price_amount_slider" name="price_amount_slider" min="1" max="100" value="10" style="width: 70%; margin-right: 10px;">
+                <span id="price_amount_display">$10</span> 
+                <small>Set the price for your space.</small>
             </div>
             <div>
-                <label for="longitude">Longitude:</label>
-                <input type="number" id="longitude" name="longitude" step="any" required>
+                <label>Price Unit:</label>
+                <input type="radio" id="price_unit_hour" name="price_unit" value="hour" checked>
+                <label for="price_unit_hour">Per Hour</label>
+                <input type="radio" id="price_unit_day" name="price_unit" value="day" style="margin-left: 15px;">
+                <label for="price_unit_day">Per Day</label>
             </div>
             <div>
-                <label for="price">Price (e.g., $5/hr, $20/day):</label>
-                <input type="text" id="price" name="price" required>
+                <label for="image_url">Image URL (Optional):</label>
+                <input type="text" id="image_url" name="image_url">
+                <small>Enter a direct link to an image of the parking space.</small>
             </div>
             <button type="submit">List My Space</button>
         </form>
@@ -86,17 +91,33 @@
             const form = document.getElementById("list-space-form");
             const formMessage = document.getElementById("form-message");
 
+            const priceSlider = document.getElementById('price_amount_slider');
+            const priceDisplay = document.getElementById('price_amount_display');
+            if(priceSlider && priceDisplay) { // Ensure elements exist
+                priceSlider.addEventListener('input', function() {
+                    priceDisplay.textContent = '$' + this.value;
+                });
+            }
+
             form.addEventListener("submit", (event) => {
                 event.preventDefault();
                 formMessage.textContent = "Submitting...";
 
-                const formData = new FormData(form);
+                // No longer using FormData directly for all fields due to slider/radio
+                const address = document.getElementById('address').value;
+                const imageUrl = document.getElementById('image_url').value;
+                const priceAmount = document.getElementById('price_amount_slider').value;
+                const priceUnit = document.querySelector('input[name="price_unit"]:checked').value;
+
                 const data = {
-                    address: formData.get("address"),
-                    latitude: parseFloat(formData.get("latitude")),
-                    longitude: parseFloat(formData.get("longitude")),
-                    price: formData.get("price")
+                    address: address,
+                    price_amount: parseFloat(priceAmount),
+                    price_unit: priceUnit
                 };
+                
+                if (imageUrl) { // Only include image_url if provided and not empty
+                    data.image_url = imageUrl;
+                }
 
                 fetch("/api/spaces", {
                     method: "POST",

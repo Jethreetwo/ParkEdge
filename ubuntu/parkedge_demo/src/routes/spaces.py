@@ -1,3 +1,4 @@
+import requests # Add this
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from src.models import db
@@ -13,27 +14,78 @@ def create_space():
     if not data:
         return jsonify({"error": "Invalid input"}), 400
 
-    address = data.get("address")
-    latitude = data.get("latitude")
-    longitude = data.get("longitude")
-    price = data.get("price")
+    # Update required fields for price
+    required_fields = ['address', 'price_amount', 'price_unit'] 
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing required field: {field}"}), 400
 
-    if not all([address, latitude is not None, longitude is not None, price]):
-        return jsonify({"error": "Missing required fields (address, latitude, longitude, price)"}), 400
+    # Validate price_amount
+    try:
+        price_amount = float(data['price_amount'])
+        if price_amount <= 0:
+            raise ValueError("Price amount must be positive.")
+    except ValueError as e:
+        return jsonify({"error": f"Invalid price_amount: {e}"}), 400
+
+    # Validate price_unit
+    price_unit = data['price_unit']
+    allowed_units = ['hour', 'day'] # Define allowed units
+    if price_unit not in allowed_units:
+        return jsonify({"error": f"Invalid price_unit. Allowed units are: {', '.join(allowed_units)}"}), 400
+    
+    address = data['address']
+    image_url = data.get('image_url') # Optional
+
+    # Geocoding
+    geocode_url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(address)}&format=json&limit=1&addressdetails=1"
+    headers = {
+        'User-Agent': 'ParkEdge Demo Application/1.0' # Essential for Nominatim
+    }
+    
+    latitude = None
+    longitude = None
 
     try:
-        # Attempt to convert latitude and longitude to float
-        latitude = float(latitude)
-        longitude = float(longitude)
-    except ValueError:
-        return jsonify({"error": "Latitude and longitude must be valid numbers"}), 400
+        response = requests.get(geocode_url, headers=headers, timeout=10) # Added timeout
+        response.raise_for_status() # Raise an exception for HTTP errors (4XX, 5XX)
+        results = response.json()
+        
+        if results and isinstance(results, list) and len(results) > 0:
+            selected_result = results[0] # Default to first result
+            # Optional: Heuristic to prefer more specific results if multiple are returned
+            # for res_detail_check in results:
+            #     if res_detail_check.get('address', {}).get('road'):
+            #         selected_result = res_detail_check
+            #         break
+            
+            latitude = selected_result.get('lat')
+            longitude = selected_result.get('lon')
+
+            if not latitude or not longitude:
+                raise ValueError("Latitude or Longitude not found in geocoding response.")
+            
+            latitude = float(latitude) # Convert to float, as Nominatim returns strings
+            longitude = float(longitude)
+
+        else:
+            return jsonify({"error": "Could not geocode address. No results found."}), 400
+    except requests.exceptions.RequestException as e:
+        print(f"Geocoding request failed: {e}") 
+        return jsonify({"error": "Geocoding service request failed. Please try again later."}), 503
+    except (ValueError, KeyError) as e:
+        print(f"Error processing geocoding response: {e}")
+        return jsonify({"error": "Error processing geocoding result. Ensure address is specific."}), 400
 
     new_space = ParkingSpace(
-        address=address,
+        address=address, # Store the original address provided by user
         latitude=latitude,
         longitude=longitude,
-        price=str(price), # Ensure price is stored as string as per model
-        owner_id=current_user.id # Set the owner_id
+        price_amount=price_amount, # Use validated price_amount
+        price_unit=price_unit,     # Use validated price_unit
+        owner_id=current_user.id,
+        image_url=image_url,
+        is_booked=False # Default for new space
     )
     db.session.add(new_space)
     db.session.commit()
@@ -53,15 +105,25 @@ def book_space(space_id):
     space = ParkingSpace.query.get(space_id) 
     if not space:
         return jsonify({"error": "Parking space not found"}), 404
-    
-    if space.is_booked: # This check might be enhanced later by looking at active bookings
-        return jsonify({"error": "Parking space is already booked"}), 409 # 409 Conflict is often better for "already exists"
+
+    # === New check for concurrent bookings ===
+    # For SQLAlchemy 2.0 style, you might use:
+    # active_booking_count = db.session.query(db.func.count(Booking.id)).filter_by(user_id=current_user.id, status='confirmed').scalar_one_or_none() or 0
+    # Using filter_by().count() for consistency with provided snippet.
+    active_booking_count = Booking.query.filter_by(user_id=current_user.id, status='confirmed').count()
+    MAX_CONCURRENT_BOOKINGS = 3
+    if active_booking_count >= MAX_CONCURRENT_BOOKINGS:
+        return jsonify({"error": f"You have reached the maximum limit of {MAX_CONCURRENT_BOOKINGS} active bookings."}), 403 # Forbidden
+    # === End of new check ===
     
     # Prevent users from booking their own spaces
     # Ensure space.owner_id is available (added in a previous subtask)
     if hasattr(space, 'owner_id') and space.owner_id == current_user.id:
         return jsonify({"error": "You cannot book your own parking space"}), 403 # 403 Forbidden
 
+    if space.is_booked: # This check might be enhanced later by looking at active bookings
+        return jsonify({"error": "Parking space is already booked"}), 409 # 409 Conflict is often better for "already exists"
+    
     # Create a new booking record
     new_booking = Booking(
         user_id=current_user.id,

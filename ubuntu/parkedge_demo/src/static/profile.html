@@ -148,9 +148,15 @@
                 spaces.forEach(space => {
                     const spaceElement = document.createElement('div');
                     spaceElement.className = 'space-item';
+                    let priceDisplayString = "N/A";
+                    if (space.price_amount !== null && space.price_amount !== undefined && space.price_unit) {
+                        priceDisplayString = `$${space.price_amount.toFixed(2)} / ${space.price_unit}`;
+                    } else if (space.price) { // Fallback for old data structure
+                        priceDisplayString = space.price; 
+                    }
                     spaceElement.innerHTML = `
                         <p><strong>Address:</strong> ${space.address}</p>
-                        <p><strong>Price:</strong> ${space.price}</p>
+                        <p><strong>Price:</strong> ${priceDisplayString}</p>
                         <p><strong>Average Rating:</strong> ${space.average_rating ? space.average_rating.toFixed(1) + '/5' : 'Not rated'}</p>
                         <p><strong>Booked:</strong> ${space.is_booked ? 'Yes' : 'No'}</p>
                         <!-- <p><a href="/edit_space.html?id=${space.id}">Manage Space</a></p> -->
