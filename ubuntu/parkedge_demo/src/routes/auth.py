@@ -151,7 +151,7 @@ def authorized():
         current_app.logger.error("Flow credentials not found after fetch_token.")
         flash("Failed to obtain credentials.", "error")
         return redirect(url_for('auth.login'))
-    current_app.logger.debug(f"Credentials obtained. ID Token present: {'id_token' in flow.credentials}")
+    current_app.logger.debug(f"Credentials obtained. ID Token present: {flow.credentials.id_token is not None}")
 
     try:
         current_app.logger.debug("Attempting to verify ID token...")
