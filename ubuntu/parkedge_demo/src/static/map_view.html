@@ -18,6 +18,14 @@
         <nav>
             <a href="/map_view.html">Find Parking</a>
             <a href="/list_space.html">List Your Space</a>
+            <div id="user-auth-section" style="display: inline-block; margin-left: 20px;">
+                <a href="/auth/login/google" id="login-button" style="display:none;">Login with Google</a>
+                <div id="user-info" style="display:none;">
+                    <img id="profile-pic-display" src="" alt="Profile" style="width:30px; height:30px; border-radius:50%; vertical-align: middle;">
+                    <span id="username-display" style="margin-left: 5px; vertical-align: middle;"></span>
+                    <a href="/auth/logout" id="logout-button" style="margin-left: 10px; vertical-align: middle;">Logout</a>
+                </div>
+            </div>
         </nav>
     </header>
     <main>
@@ -29,8 +37,62 @@
         <p>&copy; 2025 ParkEdge</p>
     </footer>
 
+    <!-- Review Modal Structure -->
+    <div id="review-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeReviewModal()">&times;</span>
+            <h3 id="review-modal-title">Reviews for Space</h3>
+            <div id="reviews-list">
+                <!-- Reviews will be populated here -->
+            </div>
+            <hr>
+            <h4>Add Your Review</h4>
+            <div id="add-review-form-container">
+                 <!-- Add review form will be here, initially hidden if not logged in -->
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Global variable to store current user data
+        let currentUser = null;
+
         document.addEventListener("DOMContentLoaded", () => {
+            // Auth status update
+            const loginButton = document.getElementById('login-button');
+            const userInfoDiv = document.getElementById('user-info');
+            const usernameDisplay = document.getElementById('username-display');
+            const profilePicDisplay = document.getElementById('profile-pic-display');
+
+            fetch('/auth/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.authenticated) {
+                        currentUser = data.user; // Store user data
+                        userInfoDiv.style.display = 'inline-block';
+                        loginButton.style.display = 'none';
+                        usernameDisplay.textContent = currentUser.username || currentUser.email;
+                        if (currentUser.profile_pic) {
+                            profilePicDisplay.src = currentUser.profile_pic;
+                            profilePicDisplay.style.display = 'inline-block';
+                        } else {
+                            profilePicDisplay.style.display = 'none';
+                        }
+                    } else {
+                        currentUser = null;
+                        loginButton.style.display = 'inline-block';
+                        userInfoDiv.style.display = 'none';
+                    }
+                    // After auth status is known, try to display add review form components
+                    // This will be called again if a specific space's reviews are opened
+                })
+                .catch(error => {
+                    console.error('Error fetching auth status:', error);
+                    currentUser = null;
+                    loginButton.style.display = 'inline-block';
+                    userInfoDiv.style.display = 'none';
+                });
+
             // Initialize the map (e.g., centered on a default location like San Francisco)
             const map = L.map("map").setView([37.7749, -122.4194], 13);
             const statusMessage = document.getElementById("status-message");
@@ -38,6 +100,26 @@
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
+
+            // Helper function to render stars
+            function renderStars(rating) {
+                if (rating === null || rating === undefined) return "Not rated";
+                const fullStar = '★';
+                const emptyStar = '☆';
+                let stars = '';
+                for (let i = 1; i <= 5; i++) {
+                    stars += i <= rating ? fullStar : emptyStar;
+                }
+                return stars;
+            }
+
+            // Helper function to format timestamps
+            function formatTimestamp(isoString) {
+                if (!isoString) return 'N/A';
+                const date = new Date(isoString);
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+            }
+
 
             function fetchAndDisplaySpaces() {
                 fetch("/api/spaces")
@@ -57,17 +139,35 @@
                             if (space.is_booked) return; // Skip booked spaces
 
                             const marker = L.marker([space.latitude, space.longitude]).addTo(map);
-                            let popupContent = `<b>Address:</b> ${space.address}<br>
-                                              <b>Price:</b> ${space.price}<br>`;
                             
+                            let ratingDisplay = "Not rated";
+                            if (space.average_rating !== null && space.average_rating !== undefined) {
+                                ratingDisplay = `${renderStars(space.average_rating)} (${space.average_rating.toFixed(1)}/5 from ${space.review_ids ? space.review_ids.length : 0} reviews)`;
+                            } else if (space.review_ids && space.review_ids.length > 0) {
+                                // Fallback if average_rating somehow isn't pre-calculated but reviews exist
+                                // This case should ideally be handled by backend, but good to have a fallback
+                                ratingDisplay = `(${space.review_ids.length} reviews)`;
+                            }
+
+                            let popupContent = `<b>Address:</b> ${space.address}<br>
+                                              <b>Price:</b> ${space.price}<br>
+                                              <b>Rating:</b> ${ratingDisplay}<br>`;
+                            
+                            const popupDiv = document.createElement("div");
+                            popupDiv.innerHTML = popupContent;
+
                             const bookButton = document.createElement("button");
                             bookButton.textContent = "Book Now";
                             bookButton.className = "book-button";
                             bookButton.onclick = () => bookSpace(space.id, marker, bookButton);
-                            
-                            const popupDiv = document.createElement("div");
-                            popupDiv.innerHTML = popupContent;
                             popupDiv.appendChild(bookButton);
+                            
+                            const viewReviewsButton = document.createElement("button");
+                            viewReviewsButton.textContent = "View Reviews";
+                            viewReviewsButton.className = "view-reviews-button";
+                            viewReviewsButton.style.marginLeft = "5px";
+                            viewReviewsButton.onclick = () => openReviewModal(space.id, space.address);
+                            popupDiv.appendChild(viewReviewsButton);
 
                             marker.bindPopup(popupDiv);
                         });
@@ -79,35 +179,324 @@
             }
 
             function bookSpace(spaceId, marker, button) {
-                fetch(`/api/spaces/${spaceId}/book`, { method: "POST" })
+                // Ensure user is logged in to book
+                if (!currentUser) {
+                    alert("Please login to book a space.");
+                    // Optionally redirect to login: window.location.href = '/auth/login/google';
+                    return;
+                }
+
+                fetch(`/api/spaces/${spaceId}/book`, { 
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json'
+                        // CSRF token might be needed if Flask-WTF is used for POST requests more broadly
+                    }
+                })
                     .then(response => {
                         if (!response.ok) {
-                             response.json().then(err => {
+                             return response.json().then(err => { // Read error response body
                                 alert(`Error booking space: ${err.error || response.statusText}`);
+                                throw new Error(err.error || `HTTP error! status: ${response.status}`);
                              });
-                             throw new Error(`HTTP error! status: ${response.status}`);
                         }
                         return response.json();
                     })
                     .then(bookedSpace => {
                         alert(`Space ${bookedSpace.address} booked successfully!`);
-                        // Update UI - e.g., change marker color or remove it, disable button
-                        marker.setOpacity(0.5); // Visually indicate it's booked
+                        marker.setOpacity(0.5);
                         button.textContent = "Booked";
                         button.disabled = true;
-                        // Optionally, remove the marker or update its popup permanently
                         marker.unbindPopup();
                         marker.bindPopup(`<b>Address:</b> ${bookedSpace.address}<br><b>Status:</b> Booked`);
+                        // Potentially refresh spaces to reflect this booking more broadly
+                        // fetchAndDisplaySpaces(); // Or update just this space in a local cache
                     })
                     .catch(error => {
-                        console.error("Error booking space:", error);
+                        console.error("Error booking space:", error.message);
                         // Alert was handled in the !response.ok block for more specific messages
                     });
+            }
+            
+            function openReviewModal(spaceId, spaceAddress) {
+                const reviewModalTitle = document.getElementById('review-modal-title');
+                const reviewsListDiv = document.getElementById('reviews-list');
+                const reviewModal = document.getElementById('review-modal');
+
+                reviewModalTitle.textContent = `Reviews for ${spaceAddress}`;
+                reviewsListDiv.innerHTML = '<p>Loading reviews...</p>'; // Clear old reviews and show loading
+                reviewModal.style.display = 'block';
+
+                fetch(`/api/spaces/${spaceId}/reviews`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(reviews => {
+                        reviewsListDiv.innerHTML = ''; // Clear loading message
+                        if (reviews.length === 0) {
+                            reviewsListDiv.innerHTML = '<p>No reviews yet for this space.</p>';
+                        } else {
+                            reviews.forEach(review => {
+                                const reviewItem = document.createElement('div');
+                                reviewItem.className = 'review-item';
+                                
+                                let reviewActions = '';
+                                if (currentUser && currentUser.email === review.user_email) { // Assuming review.to_dict() provides user_email
+                                     // Or compare with currentUser.id and review.user_id if available and preferred
+                                    reviewActions = `
+                                        <button onclick="showEditReviewForm(${review.id}, ${spaceId}, '${spaceAddress}', ${review.rating}, '${review.comment.replace(/'/g, "\\'")}')">Edit</button>
+                                        <button onclick="handleDeleteReview(${review.id}, ${spaceId}, '${spaceAddress}')">Delete</button>
+                                    `;
+                                }
+
+                                reviewItem.innerHTML = `
+                                    <div class="review-header">
+                                        <strong>${review.user_username || 'Anonymous'}</strong> - ${renderStars(review.rating)}
+                                        <span style="float:right; font-size:0.9em; color: #666;">${formatTimestamp(review.timestamp)}</span>
+                                    </div>
+                                    <p>${review.comment || 'No comment.'}</p>
+                                    <div class="review-actions">${reviewActions}</div>
+                                `;
+                                reviewsListDiv.appendChild(reviewItem);
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching reviews:', error);
+                        reviewsListDiv.innerHTML = '<p>Error loading reviews. Please try again later.</p>';
+                    });
+                
+                displayAddReviewForm(spaceId, spaceAddress);
+            }
+            
+            function displayAddReviewForm(spaceId, spaceAddress) {
+                const formContainer = document.getElementById('add-review-form-container');
+                formContainer.innerHTML = ''; // Clear previous form/message
+
+                if (currentUser) {
+                    // Check if user has already reviewed this space
+                    fetch(`/api/spaces/${spaceId}/reviews`)
+                        .then(res => res.json())
+                        .then(reviews => {
+                            const existingReview = reviews.find(r => r.user_username === currentUser.username || (currentUser.email && r.user_email === currentUser.email)); // Crude check, better by user_id
+                            if (existingReview && !document.getElementById(`edit-review-form-${existingReview.id}`)) { // Don't show add form if they have one, and it's not being edited
+                                formContainer.innerHTML = '<p>You have already reviewed this space. You can edit your existing review.</p>';
+                                return;
+                            }
+                            
+                            // If no existing review by this user, or if an edit form for their review isn't already up
+                            const form = document.createElement('form');
+                            form.id = `add-review-form-${spaceId}`;
+                            form.innerHTML = `
+                                <div class="star-rating" id="add-star-rating-${spaceId}">
+                                    ${[1,2,3,4,5].map(i => `<span data-value="${i}" title="${i} stars">☆</span>`).join('')}
+                                </div>
+                                <input type="hidden" name="rating" id="add-rating-input-${spaceId}" value="0">
+                                <textarea name="comment" placeholder="Your comment (optional)" rows="3" style="width: 95%; margin-top:10px;"></textarea>
+                                <button type="submit">Submit Review</button>
+                            `;
+                            formContainer.appendChild(form);
+                            setupStarRating(document.getElementById(`add-star-rating-${spaceId}`), document.getElementById(`add-rating-input-${spaceId}`));
+                            form.addEventListener('submit', (event) => handleAddReview(event, spaceId, spaceAddress));
+                        });
+                } else {
+                    formContainer.innerHTML = '<p>Please <a href="/auth/login/google">login</a> to add a review.</p>';
+                }
+            }
+
+            function setupStarRating(starContainer, ratingInput) {
+                const stars = starContainer.querySelectorAll('span');
+                stars.forEach(star => {
+                    star.addEventListener('click', () => {
+                        const rating = parseInt(star.dataset.value);
+                        ratingInput.value = rating;
+                        stars.forEach(s => {
+                            s.textContent = parseInt(s.dataset.value) <= rating ? '★' : '☆';
+                            s.classList.toggle('selected', parseInt(s.dataset.value) <= rating);
+                        });
+                    });
+                    star.addEventListener('mouseover', () => { // Visual feedback on hover
+                        const hoverRating = parseInt(star.dataset.value);
+                        stars.forEach(s => {
+                           if (parseInt(s.dataset.value) <= hoverRating) s.classList.add('hovered');
+                        });
+                    });
+                    star.addEventListener('mouseout', () => { // Remove hover visual feedback
+                         stars.forEach(s => s.classList.remove('hovered'));
+                    });
+                });
+            }
+
+            function handleAddReview(event, spaceId, spaceAddress) {
+                event.preventDefault();
+                if (!currentUser) {
+                    alert("Please login to submit a review.");
+                    return;
+                }
+                const form = event.target;
+                const rating = parseInt(form.elements.rating.value);
+                const comment = form.elements.comment.value;
+
+                if (rating === 0) {
+                    alert("Please select a star rating.");
+                    return;
+                }
+
+                fetch(`/api/spaces/${spaceId}/reviews`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rating, comment })
+                })
+                .then(response => response.json().then(data => ({ status: response.status, body: data })))
+                .then(({ status, body }) => {
+                    if (status === 201) {
+                        alert("Review submitted successfully!");
+                        openReviewModal(spaceId, spaceAddress); // Refresh reviews list
+                        fetchAndDisplaySpaces(); // Refresh map markers for average rating
+                    } else if (status === 409) { // Conflict - already reviewed
+                        alert(`Error: ${body.error}. You might want to edit your existing review.`);
+                         openReviewModal(spaceId, spaceAddress); // Refresh to show existing review and edit options
+                    } else {
+                        alert(`Error submitting review: ${body.error || 'Unknown error'}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error submitting review:', error);
+                    alert('An unexpected error occurred. Please try again.');
+                });
+            }
+
+            function showEditReviewForm(reviewId, spaceId, spaceAddress, currentRating, currentComment) {
+                const reviewItemDiv = event.target.closest('.review-item'); // Find the parent review item
+                if (!reviewItemDiv) return;
+
+                // Hide "Add Review" form while editing
+                const addReviewFormContainer = document.getElementById('add-review-form-container');
+                addReviewFormContainer.style.display = 'none';
+
+                reviewItemDiv.classList.add('editing-review'); // Mark as editing
+                reviewItemDiv.innerHTML = `
+                    <h4>Edit Your Review</h4>
+                    <form id="edit-review-form-${reviewId}">
+                        <div class="star-rating" id="edit-star-rating-${reviewId}">
+                            ${[1,2,3,4,5].map(i => `<span data-value="${i}" title="${i} stars">${i <= currentRating ? '★' : '☆'}</span>`).join('')}
+                        </div>
+                        <input type="hidden" name="rating" id="edit-rating-input-${reviewId}" value="${currentRating}">
+                        <textarea name="comment" rows="3" style="width: 95%; margin-top:10px;">${currentComment}</textarea>
+                        <button type="submit">Save Changes</button>
+                        <button type="button" onclick="cancelEditReview('${spaceId}', '${spaceAddress}')">Cancel</button>
+                    </form>
+                `;
+                setupStarRating(document.getElementById(`edit-star-rating-${reviewId}`), document.getElementById(`edit-rating-input-${reviewId}`));
+                document.getElementById(`edit-review-form-${reviewId}`).addEventListener('submit', (event) => handleEditReview(event, reviewId, spaceId, spaceAddress));
+            }
+
+            function cancelEditReview(spaceId, spaceAddress) {
+                // Re-enable "Add Review" form display logic
+                const addReviewFormContainer = document.getElementById('add-review-form-container');
+                addReviewFormContainer.style.display = 'block'; // Or whatever its default is
+                openReviewModal(spaceId, spaceAddress); // Just refresh the modal to show original review
+            }
+
+            function handleEditReview(event, reviewId, spaceId, spaceAddress) {
+                event.preventDefault();
+                if (!currentUser) {
+                    alert("Please login to edit a review.");
+                    return;
+                }
+                const form = event.target;
+                const rating = parseInt(form.elements.rating.value);
+                const comment = form.elements.comment.value;
+
+                if (rating === 0) {
+                    alert("Please select a star rating.");
+                    return;
+                }
+
+                fetch(`/api/reviews/${reviewId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rating, comment })
+                })
+                .then(response => response.json().then(data => ({ status: response.status, body: data })))
+                .then(({ status, body }) => {
+                    if (status === 200) {
+                        alert("Review updated successfully!");
+                        // Re-enable "Add Review" form display logic
+                        const addReviewFormContainer = document.getElementById('add-review-form-container');
+                        addReviewFormContainer.style.display = 'block';
+                        openReviewModal(spaceId, spaceAddress); // Refresh reviews list
+                        fetchAndDisplaySpaces(); // Refresh map markers for average rating
+                    } else {
+                        alert(`Error updating review: ${body.error || 'Unknown error'}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating review:', error);
+                    alert('An unexpected error occurred while updating. Please try again.');
+                });
+            }
+
+            function handleDeleteReview(reviewId, spaceId, spaceAddress) {
+                if (!currentUser) {
+                    alert("Please login to delete a review.");
+                    return;
+                }
+                if (!confirm("Are you sure you want to delete this review? This action cannot be undone.")) {
+                    return;
+                }
+
+                fetch(`/api/reviews/${reviewId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (response.status === 204) { // No Content
+                        alert("Review deleted successfully!");
+                        openReviewModal(spaceId, spaceAddress); // Refresh reviews list
+                        fetchAndDisplaySpaces(); // Refresh map markers for average rating
+                    } else {
+                        return response.json().then(data => {
+                            alert(`Error deleting review: ${data.error || 'Unknown error'}`);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting review:', error);
+                    alert('An unexpected error occurred while deleting. Please try again.');
+                });
+            }
+
+
+            function closeReviewModal() {
+                document.getElementById('review-modal').style.display = 'none';
+                document.getElementById('reviews-list').innerHTML = ''; // Clear old reviews
+                document.getElementById('add-review-form-container').innerHTML = ''; // Clear add review form
             }
 
             fetchAndDisplaySpaces();
         });
     </script>
+    <style>
+        .modal {
+            position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto; background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe; margin: 10% auto; padding: 20px;
+            border: 1px solid #888; width: 60%; max-width: 700px; border-radius: 8px;
+        }
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
+        .star-rating span { cursor: pointer; font-size: 1.5em; color: #ccc; }
+        .star-rating span.selected, .star-rating span:hover { color: orange; }
+        .review-item { border-bottom: 1px solid #eee; padding: 10px 0; }
+        .review-item:last-child { border-bottom: none; }
+        .review-header { font-weight: bold; }
+        .review-actions button { font-size: 0.8em; padding: 3px 6px; margin-left: 5px; }
+    </style>
 </body>
 </html>
 

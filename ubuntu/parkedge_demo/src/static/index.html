@@ -15,6 +15,15 @@
     </style>
 </head>
 <body>
+    <div id="user-auth-section" style="margin-bottom: 20px; padding: 10px; border-bottom: 1px solid #eee;">
+        <a href="/auth/login/google" id="login-button" style="display:none;">Login with Google</a>
+        <div id="user-info" style="display:none;">
+            <img id="profile-pic-display" src="" alt="Profile" style="width:30px; height:30px; border-radius:50%; vertical-align: middle;">
+            <span id="username-display" style="margin-left: 5px; vertical-align: middle;"></span>
+            <a href="/auth/logout" id="logout-button" style="margin-left: 10px; vertical-align: middle;">Logout</a>
+        </div>
+    </div>
+
     <h1>User API Test</h1>
 
     <!-- Get All Users -->
@@ -201,6 +210,40 @@
                 displayError(resultElementId, error);
             }
         }
+    </script>
+    <script>
+        // Add this script block for auth status, or integrate into the existing one.
+        // For simplicity, adding as a new block here.
+        document.addEventListener("DOMContentLoaded", () => {
+            const loginButton = document.getElementById('login-button');
+            const userInfoDiv = document.getElementById('user-info');
+            const usernameDisplay = document.getElementById('username-display');
+            const profilePicDisplay = document.getElementById('profile-pic-display');
+
+            fetch('/auth/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.authenticated) {
+                        userInfoDiv.style.display = 'inline-block';
+                        loginButton.style.display = 'none';
+                        usernameDisplay.textContent = data.user.username || data.user.email;
+                        if (data.user.profile_pic) {
+                            profilePicDisplay.src = data.user.profile_pic;
+                            profilePicDisplay.style.display = 'inline-block';
+                        } else {
+                            profilePicDisplay.style.display = 'none';
+                        }
+                    } else {
+                        loginButton.style.display = 'inline-block';
+                        userInfoDiv.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching auth status:', error);
+                    loginButton.style.display = 'inline-block';
+                    userInfoDiv.style.display = 'none';
+                });
+        });
     </script>
 </body>
 </html>

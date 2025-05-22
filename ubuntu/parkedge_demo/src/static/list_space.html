@@ -12,6 +12,14 @@
         <nav>
             <a href="/map_view.html">Find Parking</a>
             <a href="/list_space.html">List Your Space</a>
+            <div id="user-auth-section" style="display: inline-block; margin-left: 20px;">
+                <a href="/auth/login/google" id="login-button" style="display:none;">Login with Google</a>
+                <div id="user-info" style="display:none;">
+                    <img id="profile-pic-display" src="" alt="Profile" style="width:30px; height:30px; border-radius:50%; vertical-align: middle;">
+                    <span id="username-display" style="margin-left: 5px; vertical-align: middle;"></span>
+                    <a href="/auth/logout" id="logout-button" style="margin-left: 10px; vertical-align: middle;">Logout</a>
+                </div>
+            </div>
         </nav>
     </header>
     <main>
@@ -44,6 +52,36 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            // Auth status update
+            const loginButton = document.getElementById('login-button');
+            const userInfoDiv = document.getElementById('user-info');
+            const usernameDisplay = document.getElementById('username-display');
+            const profilePicDisplay = document.getElementById('profile-pic-display');
+
+            fetch('/auth/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.authenticated) {
+                        userInfoDiv.style.display = 'inline-block';
+                        loginButton.style.display = 'none';
+                        usernameDisplay.textContent = data.user.username || data.user.email;
+                        if (data.user.profile_pic) {
+                            profilePicDisplay.src = data.user.profile_pic;
+                            profilePicDisplay.style.display = 'inline-block';
+                        } else {
+                            profilePicDisplay.style.display = 'none';
+                        }
+                    } else {
+                        loginButton.style.display = 'inline-block';
+                        userInfoDiv.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching auth status:', error);
+                    loginButton.style.display = 'inline-block';
+                    userInfoDiv.style.display = 'none';
+                });
+
             const form = document.getElementById("list-space-form");
             const formMessage = document.getElementById("form-message");
 
