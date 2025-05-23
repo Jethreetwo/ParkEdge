@@ -1,36 +1,79 @@
+:root {
+    --primary-color: #007bff;
+    --primary-hover-color: #0056b3;
+    --secondary-color: #6c757d;
+    --secondary-hover-color: #545b62;
+    --success-color: #28a745;
+    --success-hover-color: #1e7e34;
+    --info-color: #17a2b8;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    
+    --light-bg-color: #f8f9fa;
+    --content-bg-color: #ffffff; /* For content areas like main, cards */
+    --dark-text-color: #212529;
+    --medium-text-color: #495057;
+    --light-text-color: #6c757d; /* For muted text */
+    --border-color: #dee2e6;
+    --link-color: var(--primary-color);
+    --link-hover-color: var(--primary-hover-color);
+
+    --font-family-sans-serif: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    
+    --body-bg: var(--light-bg-color);
+    --body-color: var(--dark-text-color);
+}
+
 /* General Styles */
 body {
-    font-family: Arial, sans-serif;
+    font-family: var(--font-family-sans-serif);
     margin: 0;
     padding: 0;
-    background-color: #f4f4f4;
-    color: #333;
+    background-color: var(--body-bg);
+    color: var(--body-color);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    line-height: 1.6; /* Improved line spacing */
 }
 
-header {
-    background-color: #333;
-    color: #fff;
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 0;
+    margin-bottom: 0.75rem; /* Consistent bottom margin */
+    font-weight: 500; /* A bit bolder than default but not too heavy */
+    color: var(--dark-text-color); /* Or a slightly less intense heading color */
+}
+h1 { font-size: 2.2rem; }
+h2 { font-size: 1.8rem; }
+h3 { font-size: 1.5rem; }
+/* Adjust other heading sizes as needed */
+
+a {
+    color: var(--link-color);
+    text-decoration: none; /* Remove underlines by default */
+}
+a:hover {
+    color: var(--link-hover-color);
+    text-decoration: underline; /* Underline on hover for clarity */
+}
+
+header, footer {
+    background-color: #343a40; /* A darker neutral, or var(--dark-text-color) */
+    color: #f8f9fa; /* Light text on dark background */
     padding: 1em 0;
     text-align: center;
 }
-
-header h1 {
-    margin: 0;
-    font-size: 2em;
-}
-
-nav a {
-    color: #fff;
+header h1 { color: #f8f9fa; } /* Ensure header h1 is light on dark bg */
+nav a { 
+    color: #f8f9fa; /* Or a slightly less bright white like #e9ecef */ 
     margin: 0 15px;
-    text-decoration: none;
+    /* text-decoration: none; */ /* Already handled by general 'a' style */
     font-size: 1.1em;
 }
-
-nav a:hover {
-    text-decoration: underline;
+nav a:hover { 
+    color: #ffffff; 
+    /* text-decoration: underline; */ /* Already handled by general 'a:hover' style */
 }
 
 main {
@@ -38,16 +81,12 @@ main {
     padding: 20px;
     max-width: 1200px;
     margin: 20px auto;
-    background-color: #fff;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    background-color: var(--content-bg-color); /* White or very light for content */
+    box-shadow: 0 0 15px rgba(0,0,0,0.07); /* Softer shadow */
 }
 
-footer {
-    background-color: #333;
-    color: #fff;
-    text-align: center;
-    padding: 1em 0;
-    margin-top: auto;
+footer { 
+    margin-top: auto; 
 }
 
 /* Map View Styles */
@@ -55,7 +94,7 @@ footer {
     height: 500px;
     width: 100%;
     margin-bottom: 20px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color); /* USE VARIABLE */
     position: relative; /* Needed for the absolute positioned loader to be contained */
 }
 
@@ -66,7 +105,7 @@ footer {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent white overlay */
+    background-color: rgba(255, 255, 255, 0.8); /* Slightly more opaque */
     z-index: 1500; /* Above map tiles (usually low z-index) but below modals (2000 for toast) */
     display: flex;
     flex-direction: column;
@@ -77,8 +116,8 @@ footer {
 }
 
 .loader-spinner {
-    border: 4px solid #f3f3f3; /* Light grey */
-    border-top: 4px solid #3498db; /* Blue */
+    border: 4px solid var(--light-bg-color); /* Light grey */
+    border-top: 4px solid var(--primary-color); /* Blue */
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -91,29 +130,12 @@ footer {
     100% { transform: rotate(360deg); }
 }
 
-.book-button {
-    background-color: #4CAF50;
-    color: white;
-    padding: 8px 12px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-    margin-top: 5px;
-}
-
-.book-button:hover {
-    background-color: #45a049;
-}
-
-.book-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-}
+/* .book-button will be styled by .btn.btn-primary, specific .book-button class can be removed or kept for very specific overrides */
+/* For now, assuming .btn.btn-primary is applied in JS and removing this one */
 
 #status-message {
     font-style: italic;
-    color: #777;
+    color: var(--light-text-color); /* USE VARIABLE */
 }
 
 /* List Space Form Styles */
@@ -125,7 +147,7 @@ footer {
 
 #form-message {
     margin-top: 15px;
-    font-weight: bold;
+    font-weight: bold; /* This is fine */
 }
 
 /* #list-space-form button[type="submit"] no longer needs specific styling here if using .btn.btn-primary */
@@ -135,7 +157,8 @@ footer {
 label {
     display: block; /* Ensures label is on its own line */
     margin-bottom: 5px; /* Adds space below labels */
-    font-weight: bold; /* Makes labels clearer */
+    font-weight: 600; /* Updated font-weight */
+    color: var(--medium-text-color); /* USE VARIABLE */
 }
 
 input[type="text"],
@@ -147,11 +170,24 @@ select {
     width: 100%; /* Default to full width, can be overridden by specific form layouts */
     padding: 8px 10px;
     margin-bottom: 10px; /* Space below input fields */
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color); /* USE VARIABLE */
     border-radius: 4px;
     box-sizing: border-box; /* Important for width: 100% */
     font-size: 0.95em;
+    color: var(--dark-text-color); /* USE VARIABLE */
+    background-color: var(--content-bg-color); /* USE VARIABLE */
 }
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+input[type="url"]:focus,
+textarea:focus,
+select:focus {
+    border-color: var(--primary-color); /* USE VARIABLE */
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); /* Focus ring like Bootstrap */
+}
+
 
 textarea {
     min-height: 80px; /* Give textareas a decent default height */
@@ -162,7 +198,7 @@ textarea {
 small, .form-text {
     display: block; /* Ensure it's on its own line */
     font-size: 0.85em;
-    color: #666;
+    color: var(--light-text-color); /* USE VARIABLE */
     margin-top: -5px; /* Pull it slightly closer to the input above */
     margin-bottom: 10px; /* Space it out before next element */
 }
@@ -186,21 +222,23 @@ small, .form-text {
     }
 }
 
+/* .google-maps-button specific styles for background can be kept if they shouldn't follow .btn or .btn-primary */
+/* For now, assuming the .btn .google-maps-button combination will work, with .google-maps-button providing specific overrides if any */
 .google-maps-button {
-    margin-left: 5px;
-    text-decoration: none;
-    padding: 3px 6px; /* Consistent with other small buttons */
-    background-color: #4CAF50; /* Green, similar to book button, or use #4285F4 for Google Blue */
+    /* text-decoration: none; */ /* From .btn */
+    /* padding: 3px 6px; */ /* Can be from .btn-small or specific */
+    background-color: #4CAF50; /* Specific Google Green, or use var(--success-color) */
     color: white;
-    border-radius: 3px;
-    font-size: 0.9em; /* Match other button text if needed */
-    display: inline-block; /* Ensures padding and background are applied correctly */
-    line-height: normal; /* Ensure text aligns well */
+    /* border-radius: 3px; */ /* From .btn */
+    /* font-size: 0.9em; */ /* From .btn or .btn-small */
+    /* display: inline-block; */ /* From .btn */
+    /* line-height: normal; */
+    margin-left: 5px; /* Keep specific margin if needed */
 }
 
 .google-maps-button:hover {
     background-color: #45a049; /* Darker shade for hover */
-    color: white; /* Ensure text color remains on hover */
+    color: white; 
 }
 
 /* === Button Styles === */
@@ -213,38 +251,67 @@ small, .form-text {
     text-decoration: none; /* For <a> tags styled as buttons */
     display: inline-block; /* For <a> tags */
     text-align: center;
-    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    font-weight: 500; /* Button text a bit bolder */
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.1s ease-in-out; /* Smoother transitions */
 }
 
-.btn-primary {
-    background-color: #007bff; /* Primary blue */
-    color: white;
-    border-color: #007bff;
+.btn:hover {
+    /* General hover: slightly lift or change brightness */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
 }
 
-.btn-primary:hover {
-    background-color: #0056b3;
-    border-color: #0056b3;
+.btn:active {
+    transform: translateY(0px); /* Press down effect */
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.btn-primary:disabled,
-.btn-primary.disabled { /* For <a> tags */
-    background-color: #ccc;
-    border-color: #ccc;
-    color: #666;
+.btn:disabled,
+.btn.disabled { /* Added .disabled class for <a> tags styled as buttons */
+    opacity: 0.65; /* Make it more faded */
     cursor: not-allowed;
+    box-shadow: none; /* Remove shadow on disabled */
+    transform: none; /* No transform on disabled */
+}
+
+
+.btn-primary {
+    background-color: var(--primary-color); /* USE VARIABLE */
+    color: white;
+    border-color: var(--primary-color); /* USE VARIABLE */
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover-color); /* USE VARIABLE */
+    border-color: var(--primary-hover-color); /* USE VARIABLE */
+    /* box-shadow and transform will be inherited from .btn:hover */
+}
+
+.btn-primary:disabled,
+.btn-primary.disabled {
+    background-color: var(--primary-color); /* Keep base color but opacity will fade it */
+    border-color: var(--primary-color);    /* Keep base color but opacity will fade it */
+    color: white; /* Ensure text color is still appropriate with faded bg */
+    /* The global .btn:disabled will apply opacity, cursor, remove shadow/transform */
 }
 
 .btn-secondary {
-    background-color: #6c757d; /* Secondary gray */
+    background-color: var(--secondary-color); /* USE VARIABLE */
     color: white;
-    border-color: #6c757d;
+    border-color: var(--secondary-color); /* USE VARIABLE */
 }
 
 .btn-secondary:hover {
-    background-color: #545b62;
-    border-color: #545b62;
+    background-color: var(--secondary-hover-color); /* USE VARIABLE */
+    border-color: var(--secondary-hover-color); /* USE VARIABLE */
+    /* box-shadow and transform will be inherited from .btn:hover */
+}
+
+.btn-secondary:disabled,
+.btn-secondary.disabled {
+    background-color: var(--secondary-color); /* Keep base color */
+    border-color: var(--secondary-color);    /* Keep base color */
+    color: white;
 }
 
 /* Small button variant for less prominent actions */
@@ -252,6 +319,26 @@ small, .form-text {
     padding: 3px 8px;
     font-size: 0.85em;
 }
+
+/* Added .btn-success as per prompt */
+.btn-success {
+    background-color: var(--success-color);
+    color: white;
+    border-color: var(--success-color);
+}
+.btn-success:hover {
+    background-color: var(--success-hover-color);
+    border-color: var(--success-hover-color);
+    /* box-shadow and transform will be inherited from .btn:hover */
+}
+
+.btn-success:disabled,
+.btn-success.disabled {
+    background-color: var(--success-color); /* Keep base color */
+    border-color: var(--success-color);    /* Keep base color */
+    color: white;
+}
+
 
 /* === Toast Notification Styles === */
 .toast-notification {
@@ -261,7 +348,7 @@ small, .form-text {
     transform: translateX(-50%);
     padding: 10px 20px;
     border-radius: 6px;
-    background-color: #333; /* Default dark background */
+    background-color: var(--dark-text-color); /* USE VARIABLE - Default dark background */
     color: white;
     font-size: 0.95em;
     z-index: 2000; /* Ensure it's above other content, like modals (modal z-index is 1000) */
@@ -280,15 +367,117 @@ small, .form-text {
 
 /* Different types of toasts (optional) */
 .toast-notification.success {
-    background-color: #28a745; /* Green for success */
+    background-color: var(--success-color); /* USE VARIABLE */
     color: white;
 }
 .toast-notification.error {
-    background-color: #dc3545; /* Red for error */
+    background-color: var(--danger-color); /* USE VARIABLE */
     color: white;
 }
 
 .toast-notification.info {
-    background-color: #17a2b8; /* Blue for info */
+    background-color: var(--info-color); /* USE VARIABLE */
     color: white;
+}
+/* Added styles for modal and review items */
+.modal-content {
+    background-color: var(--content-bg-color);
+    border: 1px solid var(--border-color);
+    /* ... */
+}
+.close-button { 
+    color: var(--medium-text-color); 
+    /* ... */ 
+}
+.close-button:hover, .close-button:focus { 
+    color: var(--dark-text-color); 
+    /* ... */ 
+}
+.review-item { 
+    border-bottom: 1px solid var(--border-color); 
+    /* ... */ 
+}
+hr { 
+    border-top: 1px solid var(--border-color); 
+    margin-top: 1rem; /* Add some space around hr */
+    margin-bottom: 1rem;
+}
+.profile-section { /* Example of using variables in existing sections */
+    background-color: var(--content-bg-color);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Softer shadow */
+}
+.profile-section h2 {
+    border-bottom: 1px solid var(--border-color);
+    color: var(--primary-color); /* Example: Make section titles primary color */
+}
+#current-payment-info-display {
+    background-color: var(--light-bg-color); /* Lighter background for display box */
+    border: 1px solid var(--border-color);
+}
+
+/* === Card Styles === */
+.card {
+    background-color: var(--content-bg-color, #fff); /* Default to white if variable not set */
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 0.375rem; /* Slightly larger radius, common in modern UIs */
+    margin-bottom: 1.5rem; /* Space below cards */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* Subtle shadow */
+    transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    /* Optional: slight lift or more prominent shadow on hover for cards */
+    /* box-shadow: 0 4px 12px rgba(0,0,0,0.1); */
+    /* transform: translateY(-2px); */
+}
+
+.card-header {
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 0;
+    background-color: rgba(0,0,0,.03); /* Very light gray for header */
+    border-bottom: 1px solid var(--border-color, #dee2e6);
+    border-top-left-radius: calc(0.375rem - 1px);
+    border-top-right-radius: calc(0.375rem - 1px);
+}
+
+.card-header h3, .card-header h4 { /* If headings are used in card headers */
+    font-size: 1.2rem; /* Adjust as needed */
+    margin-bottom: 0; /* Remove default heading margin */
+}
+
+.card-body {
+    padding: 1.25rem;
+}
+
+.card-body p {
+    margin-bottom: 0.75rem; /* Space between paragraphs in card */
+}
+.card-body p:last-child {
+    margin-bottom: 0;
+}
+
+.card-title { /* For a more prominent title within card-body */
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+}
+
+.card-text { /* General text in card */
+    color: var(--medium-text-color, #495057);
+}
+
+.card-footer {
+    padding: 0.75rem 1.25rem;
+    background-color: rgba(0,0,0,.03);
+    border-top: 1px solid var(--border-color, #dee2e6);
+    border-bottom-left-radius: calc(0.375rem - 1px);
+    border-bottom-right-radius: calc(0.375rem - 1px);
+    font-size: 0.9em;
+    color: var(--light-text-color, #6c757d);
+}
+
+/* Styling for lists within cards, if needed */
+.card ul, .card ol {
+    padding-left: 1.25rem; /* Align with card-body padding */
 }

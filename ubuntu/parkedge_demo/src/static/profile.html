@@ -284,19 +284,26 @@
                 listedSpacesDiv.innerHTML = ''; // Clear loading message
                 spaces.forEach(space => {
                     const spaceElement = document.createElement('div');
-                    spaceElement.className = 'space-item';
+                    spaceElement.className = 'card'; // NEW - main container is the card
+                    
                     let priceDisplayString = "N/A";
                     if (space.price_amount !== null && space.price_amount !== undefined && space.price_unit) {
                         priceDisplayString = `$${space.price_amount.toFixed(2)} / ${space.price_unit}`;
                     } else if (space.price) { // Fallback for old data structure
                         priceDisplayString = space.price; 
                     }
+
                     spaceElement.innerHTML = `
-                        <p><strong>Address:</strong> ${space.address}</p>
-                        <p><strong>Price:</strong> ${priceDisplayString}</p>
-                        <p><strong>Average Rating:</strong> ${space.average_rating ? space.average_rating.toFixed(1) + '/5' : 'Not rated'}</p>
-                        <p><strong>Booked:</strong> ${space.is_booked ? 'Yes' : 'No'}</p>
-                        <!-- <p><a href="/edit_space.html?id=${space.id}">Manage Space</a></p> -->
+                        <div class="card-body">
+                            <h4 class="card-title">${space.address}</h4> <!-- Using address as title -->
+                            <p class="card-text">
+                                <strong>Price:</strong> ${priceDisplayString}<br>
+                                <strong>Average Rating:</strong> ${space.average_rating ? space.average_rating.toFixed(1) + '/5' : 'Not rated'}<br>
+                                <strong>Status:</strong> ${space.is_booked ? 'Booked' : 'Available'}
+                                ${space.image_url ? `<br><img src="${space.image_url}" alt="Parking Space Image" style="max-width: 100px; max-height: 100px; margin-top: 10px; border-radius: 4px;">` : ''}
+                            </p>
+                            <!-- Future actions like 'Edit Space' or 'View on Map' could go here, perhaps in a .card-footer -->
+                        </div>
                     `;
                     listedSpacesDiv.appendChild(spaceElement);
                 });
@@ -332,12 +339,17 @@
                 bookingsListDiv.innerHTML = ''; // Clear loading message
                 bookings.forEach(booking => {
                     const bookingElement = document.createElement('div');
-                    bookingElement.className = 'booking-item';
+                    bookingElement.className = 'card'; // NEW
+
                     bookingElement.innerHTML = `
-                        <p><strong>Space Address:</strong> ${booking.space_address || 'N/A (Space details may have changed)'}</p>
-                        <p><strong>Booking Time:</strong> ${new Date(booking.booking_time).toLocaleString()}</p>
-                        <p><strong>Status:</strong> ${booking.status}</p>
-                        <!-- <p><a href="/booking_details.html?id=${booking.id}">View Details</a></p> -->
+                        <div class="card-body">
+                            <h5 class="card-title">Booking for: ${booking.space_address || 'N/A'}</h5>
+                            <p class="card-text">
+                                <strong>Booking Time:</strong> ${new Date(booking.booking_time).toLocaleString()}<br>
+                                <strong>Status:</strong> ${booking.status}
+                            </p>
+                            <!-- Future actions like 'View Space Details' or 'Cancel Booking' -->
+                        </div>
                     `;
                     bookingsListDiv.appendChild(bookingElement);
                 });
