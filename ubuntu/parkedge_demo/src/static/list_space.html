@@ -5,114 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ParkEdge - List Your Space</title>
     <link rel="stylesheet" href="/static/style.css">
-    <style>
-        /* Form Validation Error Messages */
-        .error-message {
-            color: var(--danger-color, #dc3545);
-            font-size: 0.85em;
-            margin-top: 4px;
-            display: none; /* Hidden by default */
-        }
-
-        /* Price Slider Styles */
-        input[type="range"]#price_amount_slider {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 70%; /* Keep existing width or adjust */
-            height: 8px;
-            background: var(--border-color, #dee2e6);
-            border-radius: 5px;
-            outline: none;
-            opacity: 0.7;
-            transition: opacity .2s;
-            cursor: pointer;
-        }
-        input[type="range"]#price_amount_slider:hover {
-            opacity: 1;
-        }
-        input[type="range"]#price_amount_slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            background: var(--primary-color, #007bff);
-            border-radius: 50%;
-            cursor: pointer;
-        }
-        input[type="range"]#price_amount_slider::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            background: var(--primary-color, #007bff);
-            border-radius: 50%;
-            cursor: pointer;
-            border: none; /* Important for Firefox */
-        }
-
-        /* Custom Radio Button Styles */
-        .radio-group label { /* Keep labels block for alignment with inputs */
-            display: inline-flex; /* Align items in the label nicely */
-            align-items: center;
-            margin-right: 15px;
-            cursor: pointer;
-        }
-        .radio-group input[type="radio"] {
-            display: none; /* Hide the default radio button */
-        }
-        .radio-group input[type="radio"] + .custom-radio {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            border: 2px solid var(--medium-text-color, #495057);
-            margin-right: 8px;
-            position: relative;
-            transition: border-color 0.3s;
-        }
-        .radio-group input[type="radio"]:checked + .custom-radio {
-            border-color: var(--primary-color, #007bff);
-        }
-        .radio-group input[type="radio"]:checked + .custom-radio::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: var(--primary-color, #007bff);
-        }
-        
-        /* Form Message Animation */
-        #form-message {
-            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        #form-message.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Button Spinner */
-        .btn .spinner {
-            display: none;
-            width: 1em;
-            height: 1em;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 0.6s linear infinite;
-            margin-left: 8px;
-            vertical-align: middle; /* Align spinner with text */
-        }
-        .btn.submitting .spinner {
-            display: inline-block;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
 </head>
 <body>
     <header>
@@ -136,39 +28,30 @@
         <form id="list-space-form">
             <div>
                 <label for="address">Address:</label>
-                <input type="text" id="address" name="address"> <!-- Removed 'required' for JS validation -->
-                <div class="error-message" id="address-error"></div>
+                <input type="text" id="address" name="address" required>
             </div>
             <div>
                 <label for="price_amount">Price Amount:</label>
-                <input type="range" id="price_amount_slider" name="price_amount_slider" min="1" max="100" value="10"> <!-- style attribute removed -->
+                <input type="range" id="price_amount_slider" name="price_amount_slider" min="1" max="100" value="10" style="width: 70%; margin-right: 10px;">
                 <span id="price_amount_display">$10</span> 
                 <small>Set the price for your space.</small>
             </div>
-            <div class="radio-group"> <!-- Added class for styling -->
+            <div>
                 <label>Price Unit:</label>
-                <label for="price_unit_hour">
-                    <input type="radio" id="price_unit_hour" name="price_unit" value="hour" checked>
-                    <span class="custom-radio"></span>Per Hour
-                </label>
-                <label for="price_unit_day">
-                    <input type="radio" id="price_unit_day" name="price_unit" value="day">
-                    <span class="custom-radio"></span>Per Day
-                </label>
+                <input type="radio" id="price_unit_hour" name="price_unit" value="hour" checked>
+                <label for="price_unit_hour">Per Hour</label>
+                <input type="radio" id="price_unit_day" name="price_unit" value="day" style="margin-left: 15px;">
+                <label for="price_unit_day">Per Day</label>
             </div>
             <div>
                 <label for="image_url">Image URL (Optional):</label>
                 <input type="text" id="image_url" name="image_url">
-                <div class="error-message" id="image_url-error"></div>
                 <small>Enter a direct link to an image of the parking space.</small>
                 <img id="image-preview" src="#" alt="Image Preview" style="display: none; max-width: 200px; max-height: 200px; margin-top: 10px; border: 1px solid #ccc;">
             </div>
-            <button type="submit" id="submit-button" class="btn btn-primary" style="font-size: 1em; padding: 12px 20px;">
-                <span class="button-text">List My Space</span>
-                <span class="spinner"></span>
-            </button> 
+            <button type="submit" class="btn btn-primary" style="font-size: 1em; padding: 12px 20px;">List My Space</button> 
         </form>
-        <p id="form-message"></p> <!-- Will be animated via JS adding/removing .visible class -->
+        <p id="form-message"></p>
     </main>
     <footer>
         <p>&copy; 2025 ParkEdge</p>
@@ -176,32 +59,6 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            const addressInput = document.getElementById('address');
-            const addressError = document.getElementById('address-error');
-            const imageUrlInput = document.getElementById('image_url');
-            const imageUrlError = document.getElementById('image_url-error');
-            const submitButton = document.getElementById('submit-button');
-            const buttonText = submitButton.querySelector('.button-text');
-            const originalButtonText = buttonText.textContent;
-
-            // Function to show error
-            function showError(inputElement, errorElement, message) {
-                errorElement.textContent = message;
-                errorElement.style.display = 'block';
-                inputElement.style.borderColor = 'var(--danger-color, #dc3545)';
-            }
-
-            // Function to clear error
-            function clearError(inputElement, errorElement) {
-                errorElement.textContent = '';
-                errorElement.style.display = 'none';
-                inputElement.style.borderColor = 'var(--border-color, #dee2e6)';
-            }
-
-            // Clear error on input
-            addressInput.addEventListener('input', () => clearError(addressInput, addressError));
-            imageUrlInput.addEventListener('input', () => clearError(imageUrlInput, imageUrlError));
-            
             // Auth status update
             const loginButton = document.getElementById('login-button');
             const userInfoDiv = document.getElementById('user-info');
@@ -265,75 +122,27 @@
                     console.error("Image preview failed to load for URL: " + this.src);
                     // Optionally, show an alert or a more user-friendly message in formMessage
                     // For now, just console log and hide.
-                        // Consider showing an error via showError for image_url if preview fails
-                        // For now, keeping it simple as per original logic.
                 };
             }
 
             form.addEventListener("submit", (event) => {
                 event.preventDefault();
-                
-                // Clear previous messages
-                formMessage.textContent = "";
-                formMessage.classList.remove('visible');
-                clearError(addressInput, addressError);
-                clearError(imageUrlInput, imageUrlError);
-
-                let isValid = true;
-
-                // Validate Address
-                const address = addressInput.value.trim();
-                if (!address) {
-                    showError(addressInput, addressError, "Address is required.");
-                    isValid = false;
-                }
-
-                // Validate Image URL (if provided)
-                const imageUrl = imageUrlInput.value.trim();
-                if (imageUrl) {
-                    try {
-                        const url = new URL(imageUrl);
-                        if (url.protocol !== "http:" && url.protocol !== "https:") {
-                            throw new Error("Invalid protocol");
-                        }
-                        // Basic check for some characters after protocol
-                        if (url.hostname.length === 0 || url.pathname.length <= 1 && url.search.length === 0 && url.hash.length === 0) {
-                             //This is a very basic check, a more robust regex might be better for stricter validation
-                             //but for "plausible" this should be okay.
-                        }
-                    } catch (_) {
-                        showError(imageUrlInput, imageUrlError, "Please enter a valid Image URL (e.g., http://example.com/image.png).");
-                        isValid = false;
-                    }
-                }
-
-                if (!isValid) {
-                    return; // Stop submission if validation fails
-                }
-
-                // formMessage.textContent = "Submitting..."; // Handled by button state change
-                // formMessage.classList.add('visible'); // Show message after AJAX response
-
-                // --- Button Loading State ---
-                submitButton.disabled = true;
-                buttonText.textContent = 'Submitting...';
-                submitButton.classList.add('submitting');
-
+                formMessage.textContent = "Submitting...";
 
                 // No longer using FormData directly for all fields due to slider/radio
-                // const address = document.getElementById('address').value; // already got it
-                // const imageUrl = document.getElementById('image_url').value; // already got it
+                const address = document.getElementById('address').value;
+                const imageUrl = document.getElementById('image_url').value;
                 const priceAmount = document.getElementById('price_amount_slider').value;
                 const priceUnit = document.querySelector('input[name="price_unit"]:checked').value;
 
                 const data = {
-                    address: address, // Use validated and trimmed address
+                    address: address,
                     price_amount: parseFloat(priceAmount),
                     price_unit: priceUnit
                 };
                 
                 if (imageUrl) { // Only include image_url if provided and not empty
-                    data.image_url = imageUrl; // Use validated and trimmed imageUrl
+                    data.image_url = imageUrl;
                 }
 
                 fetch("/api/spaces", {
@@ -346,39 +155,24 @@
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(err => {
-                            // Use err.message if available from server, otherwise fallback
-                            throw new Error(err.message || err.error || `HTTP error! status: ${response.status}`);
+                            throw new Error(err.error || `HTTP error! status: ${response.status}`);
                         });
                     }
                     return response.json();
                 })
                 .then(newSpace => {
                     formMessage.textContent = `Space listed successfully! Address: ${newSpace.address}`;
-                    formMessage.style.color = "var(--success-color, green)";
+                    formMessage.style.color = "green";
                     form.reset();
-                    // Manually reset slider display and image preview
-                    if(priceDisplay) priceDisplay.textContent = '$' + priceSlider.value;
-                    if(imagePreview) { 
+                    if(imagePreview) { // Also reset image preview on successful form submission
                         imagePreview.style.display = 'none';
                         imagePreview.src = "#";
                     }
-                    // Clear any validation styles that might have been set if user submitted an invalid form then corrected
-                    clearError(addressInput, addressError);
-                    clearError(imageUrlInput, imageUrlError);
                 })
                 .catch(error => {
                     console.error("Error listing space:", error);
                     formMessage.textContent = `Error: ${error.message}`;
-                    formMessage.style.color = "var(--danger-color, red)";
-                })
-                .finally(() => {
-                    // Revert button state
-                    submitButton.disabled = false;
-                    buttonText.textContent = originalButtonText;
-                    submitButton.classList.remove('submitting');
-                    
-                    // Show form message with animation
-                    formMessage.classList.add('visible');
+                    formMessage.style.color = "red";
                 });
             });
         });

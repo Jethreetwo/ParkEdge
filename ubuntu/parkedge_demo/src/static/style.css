@@ -608,6 +608,3 @@ input[type="range"]#max-price-slider:active::-moz-range-thumb {
     outline-offset: 2px;
     box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb, 0,123,255),.25);
 }
-
-/* Add primary-color-rgb to :root if not present, for rgba box-shadow */
-/* :root { --primary-color-rgb: 0,123,255; } // Example if primary is #007bff */

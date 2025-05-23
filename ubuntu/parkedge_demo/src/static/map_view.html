@@ -62,21 +62,17 @@
     </footer>
 
     <!-- Review Modal Structure -->
-    <div id="review-modal" class="modal"> <!-- style="display:none;" will be handled by .show class -->
-        <div class="modal-content card"> <!-- Added .card for consistent modal look -->
-            <div class="card-header"> <!-- Added card-header for title -->
-                <h3 id="review-modal-title" class="card-title" style="margin-bottom:0;">Reviews for Space</h3>
-                <span class="close-button" onclick="closeReviewModal()">&times;</span>
+    <div id="review-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeReviewModal()">&times;</span>
+            <h3 id="review-modal-title">Reviews for Space</h3>
+            <div id="reviews-list">
+                <!-- Reviews will be populated here -->
             </div>
-            <div class="card-body"> <!-- Added card-body -->
-                <div id="reviews-list">
-                    <!-- Reviews will be populated here -->
-                </div>
-                <hr>
-                <h4>Add Your Review</h4>
-                <div id="add-review-form-container">
-                    <!-- Add review form will be here, initially hidden if not logged in -->
-                </div>
+            <hr>
+            <h4>Add Your Review</h4>
+            <div id="add-review-form-container">
+                 <!-- Add review form will be here, initially hidden if not logged in -->
             </div>
         </div>
     </div>
@@ -87,10 +83,7 @@
         let currentUser = null; 
         const POLLING_INTERVAL = 30000; // 30 seconds
 
-        // Constants for modal
-        const reviewModal = document.getElementById('review-modal'); // Get modal element once
-
-        // Price Unit Toggle State
+        // Price Unit Toggle State - Placed globally within the script tag
         const priceUnitStates = ['any', 'hour', 'day'];
         let currentPriceUnitIndex = 0;
         let priceUnitToggleButton; 
@@ -114,19 +107,6 @@
                 priceUnitToggleButton.textContent = getPriceUnitDisplayText(priceUnitStates[currentPriceUnitIndex]);
             }
         }
-
-
-        document.addEventListener("DOMContentLoaded", () => {
-            // Auth status update
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let map; 
-        let spaceMarkers = []; 
-        let currentUser = null; 
-        const POLLING_INTERVAL = 30000; // 30 seconds
 
         document.addEventListener("DOMContentLoaded", () => {
             // Auth status update
@@ -330,65 +310,48 @@
                         priceDisplayString = space.price;
                     }
 
-                    const popupDiv = document.createElement("div");
-                    popupDiv.className = "card"; // Main card container
-                    popupDiv.style.minWidth = "250px"; // Or a more appropriate width
-
-                    const cardBody = document.createElement("div");
-                    cardBody.className = "card-body";
-
-                    const title = document.createElement("h5");
-                    title.className = "card-title";
-                    title.textContent = space.address;
-                    cardBody.appendChild(title);
-
-                    const priceP = document.createElement("p");
-                    priceP.className = "card-text";
-                    priceP.innerHTML = `<strong>Price:</strong> ${priceDisplayString}`;
-                    cardBody.appendChild(priceP);
-
-                    const ratingP = document.createElement("p");
-                    ratingP.className = "card-text";
-                    ratingP.innerHTML = `<strong>Rating:</strong> ${ratingDisplay}`; // renderStars output is HTML-safe
-                    cardBody.appendChild(ratingP);
+                    let popupContent = `<b>Address:</b> ${space.address}<br>
+                                      <b>Price:</b> ${priceDisplayString}<br>
+                                      <b>Rating:</b> ${ratingDisplay}<br>`;
                     
-                    // Container for buttons to help with layout if needed
-                    const buttonContainer = document.createElement("div");
-                    buttonContainer.style.marginTop = "10px"; // Add some space above buttons
+                    const popupDiv = document.createElement("div");
+                    popupDiv.innerHTML = popupContent;
 
                     if (!space.is_booked) {
                         const bookButton = document.createElement("button");
                         bookButton.textContent = "Book Now";
+                        // Apply new classes: btn, btn-primary, and retain book-button if it has specific non-overlapping styles
                         bookButton.className = "btn btn-primary book-button"; 
                         bookButton.onclick = () => bookSpace(space.id, marker, bookButton); 
-                        buttonContainer.appendChild(bookButton);
+                        popupDiv.appendChild(bookButton);
                     } else {
                         const bookedText = document.createElement("p");
-                        bookedText.className = "card-text"; // Use card-text for consistent styling
                         bookedText.textContent = "This space is currently booked.";
                         bookedText.style.fontWeight = "bold";
-                        bookedText.style.color = "var(--danger-color, red)"; // Make it more prominent
-                        cardBody.appendChild(bookedText); // Add directly to card body, before buttons
-                        marker.setOpacity(0.6); 
+                        popupDiv.appendChild(bookedText);
+                        marker.setOpacity(0.6); // Make booked spaces less prominent
                     }
                     
                     const viewReviewsButton = document.createElement("button");
                     viewReviewsButton.textContent = "View Reviews";
+                    // Apply new classes: btn, btn-secondary, btn-small, and retain view-reviews-button if specific non-overlapping styles
                     viewReviewsButton.className = "btn btn-secondary btn-small view-reviews-button"; 
-                    viewReviewsButton.style.marginLeft = space.is_booked ? "0px" : "5px"; // No margin if book button not present
+                    viewReviewsButton.style.marginLeft = "5px"; // Keep margin for spacing
                     viewReviewsButton.onclick = () => openReviewModal(space.id, space.address);
-                    buttonContainer.appendChild(viewReviewsButton);
+                    popupDiv.appendChild(viewReviewsButton);
 
                     const googleMapsButton = document.createElement("a");
                     googleMapsButton.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(space.address)}`;
                     googleMapsButton.textContent = "Get Directions";
-                    googleMapsButton.className = "btn google-maps-button btn-small"; // Added btn-small for consistency
+                    // Apply new classes: btn, and retain google-maps-button for its specific color/icon or other overrides
+                    googleMapsButton.className = "btn google-maps-button"; 
                     googleMapsButton.target = "_blank"; 
-                    googleMapsButton.style.marginLeft = "5px";
-                    buttonContainer.appendChild(googleMapsButton);
+                    // Note: .google-maps-button in CSS might need adjustment to ensure compatibility with .btn,
+                    // or specific styles like background-color might be added to .google-maps-button directly.
+                    // For now, just adding .btn as requested for base structure.
+                    // Margin-left is already in .google-maps-button CSS.
+                    popupDiv.appendChild(googleMapsButton);
 
-                    cardBody.appendChild(buttonContainer); // Add button container to card body
-                    popupDiv.appendChild(cardBody); // Add card body to card
                     marker.bindPopup(popupDiv);
 
                     // Bind price tooltip to marker
@@ -477,14 +440,11 @@
         function openReviewModal(spaceId, spaceAddress) {
             const reviewModalTitle = document.getElementById('review-modal-title');
             const reviewsListDiv = document.getElementById('reviews-list');
-            // const reviewModal = document.getElementById('review-modal'); // Already global
+            const reviewModal = document.getElementById('review-modal');
 
             reviewModalTitle.textContent = `Reviews for ${spaceAddress}`;
             reviewsListDiv.innerHTML = '<p>Loading reviews...</p>'; 
-            if (reviewModal) { // Ensure modal exists
-                reviewModal.classList.add('show'); // For fade-in animation
-            }
-
+            reviewModal.style.display = 'block';
 
             fetch(`/api/spaces/${spaceId}/reviews`)
                 .then(response => {
@@ -507,19 +467,17 @@
                                 // Apply new classes to review action buttons
                                 reviewActions = `
                                     <button class="btn btn-secondary btn-small" onclick="showEditReviewForm(${review.id}, ${spaceId}, '${spaceAddress}', ${review.rating}, '${review.comment.replace(/'/g, "\\'")}')">Edit</button>
-                                    <button class="btn btn-danger btn-small" style="margin-left: 5px;" onclick="handleDeleteReview(${review.id}, ${spaceId}, '${spaceAddress}')">Delete</button> <!-- Changed to btn-danger -->
+                                    <button class="btn btn-secondary btn-small" style="margin-left: 5px;" onclick="handleDeleteReview(${review.id}, ${spaceId}, '${spaceAddress}')">Delete</button>
                                 `;
                             }
 
                             reviewItem.innerHTML = `
-                                <div class="review-header d-flex justify-content-between align-items-center"> <!-- Using flex for better alignment -->
-                                    <div>
-                                        <strong>${review.user_username || 'Anonymous'}</strong> - ${renderStars(review.rating)}
-                                    </div>
-                                    <small class="text-muted">${formatTimestamp(review.timestamp)}</small> <!-- Using text-muted -->
+                                <div class="review-header">
+                                    <strong>${review.user_username || 'Anonymous'}</strong> - ${renderStars(review.rating)}
+                                    <span style="float:right; font-size:0.9em; color: #666;">${formatTimestamp(review.timestamp)}</span>
                                 </div>
-                                <p class="card-text mt-1">${review.comment || 'No comment.'}</p> <!-- Using card-text and margin top -->
-                                <div class="review-actions mt-2">${reviewActions}</div> <!-- Margin top for actions -->
+                                <p>${review.comment || 'No comment.'}</p>
+                                <div class="review-actions">${reviewActions}</div>
                             `;
                             reviewsListDiv.appendChild(reviewItem);
                         });
@@ -550,12 +508,12 @@
                         const form = document.createElement('form');
                         form.id = `add-review-form-${spaceId}`;
                         form.innerHTML = `
-                            <div class="star-rating mb-2" id="add-star-rating-${spaceId}"> <!-- mb-2 for spacing -->
+                            <div class="star-rating" id="add-star-rating-${spaceId}">
                                 ${[1,2,3,4,5].map(i => `<span data-value="${i}" title="${i} stars">☆</span>`).join('')}
                             </div>
                             <input type="hidden" name="rating" id="add-rating-input-${spaceId}" value="0">
-                            <textarea name="comment" class="form-control mb-2" placeholder="Your comment (optional)" rows="3"></textarea> <!-- form-control and mb-2 -->
-                            <button type="submit" class="btn btn-primary">Submit Review</button> <!-- Removed style -->
+                            <textarea name="comment" placeholder="Your comment (optional)" rows="3" style="width: 95%; margin-top:10px;"></textarea>
+                            <button type="submit" class="btn btn-primary" style="margin-top:10px;">Submit Review</button>
                         `;
                         formContainer.appendChild(form);
                         setupStarRating(document.getElementById(`add-star-rating-${spaceId}`), document.getElementById(`add-rating-input-${spaceId}`));
@@ -637,11 +595,11 @@
             reviewItemDiv.innerHTML = `
                 <h4>Edit Your Review</h4>
                 <form id="edit-review-form-${reviewId}">
-                    <div class="star-rating mb-2" id="edit-star-rating-${reviewId}"> <!-- mb-2 for spacing -->
+                    <div class="star-rating" id="edit-star-rating-${reviewId}">
                         ${[1,2,3,4,5].map(i => `<span data-value="${i}" title="${i} stars">${i <= currentRating ? '★' : '☆'}</span>`).join('')}
                     </div>
                     <input type="hidden" name="rating" id="edit-rating-input-${reviewId}" value="${currentRating}">
-                    <textarea name="comment" class="form-control mb-2" rows="3">${currentComment}</textarea> <!-- form-control and mb-2 -->
+                    <textarea name="comment" rows="3" style="width: 95%; margin-top:10px;">${currentComment}</textarea>
                     <button type="submit" class="btn btn-primary" style="margin-right: 5px;">Save Changes</button>
                     <button type="button" class="btn btn-secondary" onclick="cancelEditReview('${spaceId}', '${spaceAddress}')">Cancel</button>
                 </form>
@@ -719,9 +677,9 @@
         }
 
         function closeReviewModal() {
-            // const modal = document.getElementById('review-modal'); // Already global
-            if (reviewModal) {
-                reviewModal.classList.remove('show'); // For fade-out animation
+            const modal = document.getElementById('review-modal');
+            if (modal) {
+                modal.style.display = 'none';
             } else {
                 console.error('Review modal element not found.');
             }
@@ -738,119 +696,31 @@
         }
     </script>
     <style>
-        /* Modal Base Styles - some from existing inline, some new */
         .modal {
-            position: fixed; 
-            z-index: 1000; 
-            left: 0; 
-            top: 0; 
-            width: 100%; 
-            height: 100%;
-            overflow: auto; 
-            background-color: rgba(0,0,0,0.5); /* Darker overlay */
-            opacity: 0; /* Start hidden for animation */
-            visibility: hidden;
-            /* display: flex; already handled by global .modal in style.css */
-            /* align-items: center; already handled by global .modal in style.css */
-            /* justify-content: center; already handled by global .modal in style.css */
-            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto; background-color: rgba(0,0,0,0.4);
         }
-        .modal.show {
-            opacity: 1;
-            visibility: visible;
+        .modal-content {
+            background-color: #fefefe; margin: 10% auto; padding: 20px;
+            border: 1px solid #888; width: 60%; max-width: 700px; border-radius: 8px;
         }
-
-        /* Modal Content - using card styles from style.css as base */
-        /* .modal > .card in style.css handles the general card behavior within a modal */
-        /* Specific overrides for review modal's card can go here if needed, but most should be covered */
-        .modal .modal-content.card { 
-             /* margin: 10% auto; */ /* style.css .modal > .card uses margin: auto */
-             /* width: 90%; */  /* style.css .modal > .card handles width */
-             /* max-width: 600px; */ /* style.css .modal > .card handles max-width */
-             /* max-height: 90vh; */ /* style.css .modal > .card handles max-height */
-        }
-
-
-        /* Modal Header - within .card-header */
-        .modal .card-header { /* This targets .card-header specifically within .modal context */
-            display: flex; /* Already applied by .d-flex if that class is on the element */
-            justify-content: space-between; /* Already applied by .justify-content-between */
-            align-items: center; /* Already applied by .align-items-center */
-            /* Padding and border are inherited from .card-header in style.css */
-        }
-        .modal .card-header .card-title { 
-            margin-bottom: 0; /* Retain this as it's specific to the title in this header */
-        }
-
-        .modal .close-button { 
-            color: var(--medium-text-color); 
-            font-size: 1.75rem; 
-            font-weight: bold;
-            background: none; 
-            border: none;
-            padding: 0 0.5rem; 
-        }
-        .modal .close-button:hover, 
-        .modal .close-button:focus { 
-            color: var(--dark-text-color); 
-            text-decoration: none; 
-            cursor: pointer; 
-        }
-
-        /* Star rating in modal */
-        .modal .star-rating span { /* This is specific to the modal's star rating appearance */
-            cursor: pointer; 
-            font-size: 1.8em; 
-            color: var(--light-text-color); 
-            margin-right: 2px; 
-        }
-        .modal .star-rating span.selected, 
-        .modal .star-rating span.hovered { 
-            color: var(--warning-color); 
-        }
-        
-        /* Review Item in Modal */
-        .modal .review-item { /* Specific styling for review items within the modal */
-            border-bottom: 1px solid var(--border-color); 
-            padding: 1rem 0; 
-        }
-        .modal .review-item:last-child { 
-            border-bottom: none; 
-        }
-        .modal .review-header { /* Specific to review item headers in the modal */
-            /* display: flex; */ /* Covered by .d-flex utility class if used in HTML */
-            /* justify-content: space-between; */ /* Covered by .justify-content-between utility class */
-            /* align-items: center; */ /* Covered by .align-items-center utility class */
-            margin-bottom: 0.25rem; /* Can be covered by .mb-1 utility class */
-        }
-        .modal .review-header strong {
-             color: var(--dark-text-color);
-        }
-         .modal .review-header .text-muted { /* .text-muted utility class will handle color */
-            font-size: 0.85em; /* Keep specific font size if desired */
-        }
-        .modal .review-item p.card-text { /* Comment text styling within a review item */
-            font-size: 0.95em;
-            margin-bottom: 0.5rem; /* Can be covered by .mb-2 utility class */
-        }
-        .modal .review-actions button { /* Styles for buttons within review actions */
-            /* Specific margins or other properties can remain if not covered by .btn classes */
-        }
-
-        /* .modal textarea.form-control will inherit from global .form-control in style.css */
-
-        /* Specific to price tooltip - this is not modal related, so it's fine here or in style.css */
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
+        .star-rating span { cursor: pointer; font-size: 1.5em; color: #ccc; }
+        .star-rating span.selected, .star-rating span.hovered { color: orange; } /* Combined hover and selected */
+        .review-item { border-bottom: 1px solid #eee; padding: 10px 0; }
+        .review-item:last-child { border-bottom: none; }
+        .review-header { font-weight: bold; }
+        .review-actions button { font-size: 0.8em; padding: 3px 6px; margin-left: 5px; }
         .price-tooltip {
-            background-color: rgba(255, 255, 255, 0.9); 
-            border: 1px solid var(--border-color); 
+            background-color: rgba(255, 255, 255, 0.85); /* Semi-transparent white background */
+            border: 1px solid #ccc;
             border-radius: 3px;
-            padding: 4px 8px; 
+            padding: 3px 6px;
             font-size: 0.9em;
             font-weight: bold;
-            color: var(--dark-text-color); 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.15); 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
-        /* Removed utility classes .d-flex, .justify-content-between, .align-items-center, .mt-1, .mt-2, .mb-2, .text-muted as they are now in style.css */
     </style>
 </body>
 </html>
