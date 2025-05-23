@@ -8,6 +8,7 @@
     --info-color: #17a2b8;
     --warning-color: #ffc107;
     --danger-color: #dc3545;
+    --primary-color-rgb: 0,123,255; /* Added for #007bff */
     
     --light-bg-color: #f8f9fa;
     --content-bg-color: #ffffff; /* For content areas like main, cards */
@@ -178,14 +179,24 @@ select {
     background-color: var(--content-bg-color); /* USE VARIABLE */
 }
 
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="url"],
+textarea,
+select {
+    /* ... existing styles ... */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; /* Added for smooth focus */
+}
+
 input[type="text"]:focus,
 input[type="email"]:focus,
 input[type="number"]:focus,
 input[type="url"]:focus,
 textarea:focus,
 select:focus {
-    border-color: var(--primary-color); /* USE VARIABLE */
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); /* Focus ring like Bootstrap */
+    border-color: var(--primary-color); 
+    box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb, 0,123,255),.25); /* Use RGB for opacity if primary is hex */
 }
 
 
@@ -343,26 +354,25 @@ small, .form-text {
 /* === Toast Notification Styles === */
 .toast-notification {
     position: fixed;
-    bottom: 20px; /* Or top: 20px; */
+    bottom: -100px; /* Start further down, off-screen */
     left: 50%;
     transform: translateX(-50%);
-    padding: 10px 20px;
-    border-radius: 6px;
-    background-color: var(--dark-text-color); /* USE VARIABLE - Default dark background */
+    padding: 12px 25px; /* Slightly larger padding */
+    border-radius: 8px; /* Slightly more rounded */
+    background-color: var(--dark-text-color); 
     color: white;
-    font-size: 0.95em;
-    z-index: 2000; /* Ensure it's above other content, like modals (modal z-index is 1000) */
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    opacity: 0; /* Start hidden */
-    visibility: hidden; /* Start hidden */
-    transition: opacity 0.5s, visibility 0.5s, bottom 0.5s; /* Or top 0.5s */
+    font-size: 1em; /* Slightly larger font */
+    z-index: 2000; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25); /* More pronounced shadow */
+    opacity: 0; 
+    visibility: hidden; 
+    transition: opacity 0.4s ease-out, visibility 0.4s ease-out, bottom 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); /* Smoother cubic-bezier */
 }
 
 .toast-notification.show {
     opacity: 1;
     visibility: visible;
-    bottom: 40px; /* Slide up animation */
-    /* Or if using top: top: 40px; */
+    bottom: 30px; /* Final resting position */
 }
 
 /* Different types of toasts (optional) */
@@ -481,3 +491,123 @@ hr {
 .card ul, .card ol {
     padding-left: 1.25rem; /* Align with card-body padding */
 }
+
+/* === Utility Classes === */
+.d-flex { display: flex !important; }
+.justify-content-between { justify-content: space-between !important; }
+.justify-content-center { justify-content: center !important; } /* Added for completeness */
+.align-items-center { align-items: center !important; }
+.mt-1 { margin-top: 0.25rem !important; }
+.mt-2 { margin-top: 0.5rem !important; }
+.mt-3 { margin-top: 1rem !important; } /* Added for completeness */
+.mb-1 { margin-bottom: 0.25rem !important; } /* Added for completeness */
+.mb-2 { margin-bottom: 0.5rem !important; }
+.mb-3 { margin-bottom: 1rem !important; } /* Added for completeness */
+.ms-1 { margin-left: 0.25rem !important; } /* Added for completeness */
+.ms-2 { margin-left: 0.5rem !important; } /* Added for completeness */
+.me-1 { margin-right: 0.25rem !important; } /* Added for completeness */
+.me-2 { margin-right: 0.5rem !important; } /* Added for completeness */
+.text-muted { color: var(--light-text-color) !important; }
+.text-center { text-align: center !important; } /* Added for completeness */
+
+/* === Base Modal Styles === */
+.modal {
+    position: fixed; 
+    z-index: 1000; /* Below toast (2000), but above most other things */
+    left: 0; 
+    top: 0; 
+    width: 100%; 
+    height: 100%;
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.55); /* Slightly darker overlay */
+    opacity: 0;
+    visibility: hidden;
+    display: flex; /* Use flex to center modal content */
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+.modal.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Modal content styling will typically be a .card or a custom class */
+/* This ensures that when a .card is used as modal-content, it behaves well within the flex container */
+.modal > .card { /* Direct child card of a modal */
+    margin: auto; /* This helps with centering if flex properties on .modal aren't enough or are overridden */
+    width: 90%;
+    max-width: 600px; /* Default max-width for modals */
+    display: flex; /* Ensure it's a flex container for its children like card-header, card-body */
+    flex-direction: column;
+    max-height: 90vh; /* Prevent modal from being taller than viewport */
+}
+.modal > .card > .card-body { 
+    overflow-y: auto; 
+}
+
+/* === Custom Range Slider Styles (for map_view.html filters) === */
+/* Specific to #max-price-slider if needed, or general input[type="range"] */
+input[type="range"]#max-price-slider { /* Targeting the specific slider in map_view */
+    -webkit-appearance: none;
+    appearance: none;
+    width: 150px; /* Keep existing width from map_view or adjust as needed */
+    height: 8px;
+    background: var(--border-color, #dee2e6);
+    border-radius: 5px;
+    outline: none;
+    opacity: 0.9;
+    transition: opacity 0.2s ease-in-out;
+    vertical-align: middle; /* Ensure it aligns with labels/text */
+}
+
+input[type="range"]#max-price-slider:hover {
+    opacity: 1;
+}
+
+input[type="range"]#max-price-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px; /* Slightly smaller than list_space for a denser filter bar */
+    height: 18px;
+    background: var(--primary-color, #007bff);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--content-bg-color, #fff); /* Border to make it pop */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+
+input[type="range"]#max-price-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: var(--primary-color, #007bff);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--content-bg-color, #fff);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+
+/* Feedback on thumb drag/active */
+input[type="range"]#max-price-slider:active::-webkit-slider-thumb {
+    transform: scale(1.15);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    background-color: var(--primary-hover-color, #0056b3);
+}
+
+input[type="range"]#max-price-slider:active::-moz-range-thumb {
+    transform: scale(1.15);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    background-color: var(--primary-hover-color, #0056b3);
+}
+
+/* Focus style for standard radio buttons in filters */
+#filters input[type="radio"]:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb, 0,123,255),.25);
+}
+
+/* Add primary-color-rgb to :root if not present, for rgba box-shadow */
+/* :root { --primary-color-rgb: 0,123,255; } // Example if primary is #007bff */
