@@ -45,14 +45,8 @@
                 <input type="range" id="max-price-slider" name="max-price-slider" min="0" max="200" value="200" style="width: 150px; vertical-align: middle;">
                 <span id="max-price-display" style="margin-left: 5px;">$200</span>
             </div>
-            <div style="margin-top: 5px;">
-                <label style="margin-right: 5px;">Price Unit Filter:</label>
-                <input type="radio" id="price-unit-any" name="price_unit_filter" value="any" checked>
-                <label for="price-unit-any">Any Unit</label>
-                <input type="radio" id="price-unit-hour" name="price_unit_filter" value="hour" style="margin-left: 10px;">
-                <label for="price-unit-hour">Per Hour</label>
-                <input type="radio" id="price-unit-day" name="price_unit_filter" value="day" style="margin-left: 10px;">
-                <label for="price-unit-day">Per Day</label>
+            <div style="margin-top: 10px;"> <!-- Adjusted margin-top for spacing -->
+                <button id="price-unit-toggle" type="button" class="btn btn-outline-secondary"></button>
             </div>
         </div>
         <!-- Map Loader HTML -->
@@ -95,6 +89,32 @@
 
         // Constants for modal
         const reviewModal = document.getElementById('review-modal'); // Get modal element once
+
+        // Price Unit Toggle State
+        const priceUnitStates = ['any', 'hour', 'day'];
+        let currentPriceUnitIndex = 0;
+        let priceUnitToggleButton; 
+
+        // Helper to map state value to display text
+        function getPriceUnitDisplayText(stateValue) {
+            switch (stateValue) {
+                case 'hour':
+                    return "Unit: Per Hour";
+                case 'day':
+                    return "Unit: Per Day";
+                case 'any':
+                default:
+                    return "Unit: Any";
+            }
+        }
+
+        // Function to update button text
+        function updatePriceUnitButtonText() {
+            if (priceUnitToggleButton) {
+                priceUnitToggleButton.textContent = getPriceUnitDisplayText(priceUnitStates[currentPriceUnitIndex]);
+            }
+        }
+
 
         document.addEventListener("DOMContentLoaded", () => {
             // Auth status update
@@ -166,10 +186,17 @@
                 maxPriceSlider.addEventListener('change', fetchAndDisplaySpaces); // Filter on release
             }
 
-            const priceUnitRadioButtons = document.querySelectorAll('input[name="price_unit_filter"]');
-            priceUnitRadioButtons.forEach(radio => {
-                radio.addEventListener('change', fetchAndDisplaySpaces);
-            });
+            // Price unit toggle button setup
+            priceUnitToggleButton = document.getElementById('price-unit-toggle');
+            if (priceUnitToggleButton) {
+                updatePriceUnitButtonText(); // Set initial text
+                priceUnitToggleButton.addEventListener('click', () => {
+                    currentPriceUnitIndex = (currentPriceUnitIndex + 1) % priceUnitStates.length;
+                    updatePriceUnitButtonText();
+                    fetchAndDisplaySpaces();
+                });
+            }
+            // Removed old radio button event listeners as the elements are gone.
         });
 
         // Helper function to render stars
@@ -242,7 +269,7 @@
                 const searchTerm = document.getElementById('address-search').value.toLowerCase();
                 const minRating = parseInt(document.getElementById('rating-filter').value, 10);
                 const maxPrice = parseFloat(document.getElementById('max-price-slider').value);
-                const selectedPriceUnitFilter = document.querySelector('input[name="price_unit_filter"]:checked').value;
+                const selectedPriceUnitFilter = priceUnitStates[currentPriceUnitIndex]; // Get filter value from state
 
                 const filteredSpaces = allSpaces.filter(space => {
                     const matchesSearchTerm = !searchTerm || (space.address && space.address.toLowerCase().includes(searchTerm));
