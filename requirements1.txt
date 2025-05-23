@@ -1,0 +1,37 @@
+# ── Core framework ──────────────────────────────────────────
+Flask==3.1.1
+Werkzeug==3.1.3          # Flask’s WSGI engine
+Jinja2==3.1.6            # HTML templates
+itsdangerous==2.2.0      # secure cookies
+MarkupSafe==3.0.2        # template escaping
+click==8.1.8             # CLI helpers
+
+# ── Auth & sessions ─────────────────────────────────────────
+Flask-Login==0.6.3
+google-auth==2.40.2
+google-auth-oauthlib==1.2.2
+requests-oauthlib==2.0.0
+
+# ── HTTP client ─────────────────────────────────────────────
+requests==2.32.3
+urllib3==2.4.0
+certifi==2025.4.26
+charset-normalizer==3.4.2
+idna==3.10
+
+# ── Database layer ─────────────────────────────────────────
+SQLAlchemy==2.0.41
+Flask-SQLAlchemy==3.1.1
+greenlet==3.2.2          # required by SQLAlchemy
+
+# ── Cryptography (used by google-auth & OAuthlib) ──────────
+cryptography==41.0.7
+cffi==1.17.1
+pycparser==2.22
+rsa==4.9.1
+
+# ── ASGI / async utils (Flask async views, optional) ───────
+anyio==4.9.0             # required by httpx / async views
+
+# ── Production web server ──────────────────────────────────
+gunicorn==22.0.0
