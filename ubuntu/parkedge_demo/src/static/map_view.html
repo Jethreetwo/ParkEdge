@@ -18,7 +18,7 @@
         <nav>
             <a href="/static/map_view.html">Find Parking</a>
             <a href="/static/list_space.html">List Your Space</a>
-            <a href="/static/profile.html">My Profile</a>
+            <a href="/static/profile.html" id="myProfileLink">My Profile</a>
             <div id="user-auth-section" style="display: inline-block; margin-left: 20px;">
                 <a href="/auth/login/google" id="login-button" style="display:none;">Login with Google</a>
                 <div id="user-info" style="display:none;">
@@ -403,6 +403,18 @@
                 }
                 
                 showToast(`Space ${responseData.address} booked successfully!`, "success"); // NEW
+
+                // START: Notification for new instructions
+                if (responseData.images && responseData.images.length > 0) {
+                    localStorage.setItem('newInstructionsAvailable', 'true');
+                    localStorage.setItem('newlyBookedSpaceId', responseData.id.toString()); // Store as string
+                    // Also apply glow effect immediately if the profile link is on the current page
+                    const profileLink = document.getElementById('myProfileLink');
+                    if (profileLink) {
+                        profileLink.classList.add('glow-effect');
+                    }
+                }
+                // END: Notification for new instructions
                 
                 // Visually update the specific marker immediately
                 if (marker) {

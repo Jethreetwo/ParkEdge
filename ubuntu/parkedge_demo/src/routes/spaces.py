@@ -1,26 +1,32 @@
-import requests # Add this
+import requests
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
+import os
 from src.models import db
 from src.models.space import ParkingSpace
 from src.models.booking import Booking # Import the Booking model
+from src.models.image import ParkingSpaceImage # Import the ParkingSpaceImage model
 
 spaces_bp = Blueprint("spaces", __name__)
+
+# Define the upload folder path
+UPLOAD_FOLDER = 'ubuntu/parkedge_demo/src/uploads/parking_images'
+# Ensure the upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @spaces_bp.route("/spaces", methods=["POST"])
 @login_required
 def create_space():
-    data = request.get_json()
+    data = request.form # Use request.form for form data
     if not data:
         return jsonify({"error": "Invalid input"}), 400
 
-    # Update required fields for price
-    required_fields = ['address', 'price_amount', 'price_unit'] 
+    required_fields = ['address', 'price_amount', 'price_unit']
     for field in required_fields:
         if field not in data:
             return jsonify({"error": f"Missing required field: {field}"}), 400
 
-    # Validate price_amount
     try:
         price_amount = float(data['price_amount'])
         if price_amount <= 0:
@@ -28,14 +34,12 @@ def create_space():
     except ValueError as e:
         return jsonify({"error": f"Invalid price_amount: {e}"}), 400
 
-    # Validate price_unit
     price_unit = data['price_unit']
-    allowed_units = ['hour', 'day'] # Define allowed units
+    allowed_units = ['hour', 'day']
     if price_unit not in allowed_units:
         return jsonify({"error": f"Invalid price_unit. Allowed units are: {', '.join(allowed_units)}"}), 400
     
     address = data['address']
-    image_url = data.get('image_url') # Optional
 
     # Geocoding
     geocode_url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(address)}&format=json&limit=1&addressdetails=1"
@@ -47,27 +51,20 @@ def create_space():
     longitude = None
 
     try:
-        response = requests.get(geocode_url, headers=headers, timeout=10) # Added timeout
-        response.raise_for_status() # Raise an exception for HTTP errors (4XX, 5XX)
+        response = requests.get(geocode_url, headers=headers, timeout=10)
+        response.raise_for_status()
         results = response.json()
         
         if results and isinstance(results, list) and len(results) > 0:
-            selected_result = results[0] # Default to first result
-            # Optional: Heuristic to prefer more specific results if multiple are returned
-            # for res_detail_check in results:
-            #     if res_detail_check.get('address', {}).get('road'):
-            #         selected_result = res_detail_check
-            #         break
-            
+            selected_result = results[0]
             latitude = selected_result.get('lat')
             longitude = selected_result.get('lon')
 
             if not latitude or not longitude:
                 raise ValueError("Latitude or Longitude not found in geocoding response.")
             
-            latitude = float(latitude) # Convert to float, as Nominatim returns strings
+            latitude = float(latitude)
             longitude = float(longitude)
-
         else:
             return jsonify({"error": "Could not geocode address. No results found."}), 400
     except requests.exceptions.RequestException as e:
@@ -78,17 +75,141 @@ def create_space():
         return jsonify({"error": "Error processing geocoding result. Ensure address is specific."}), 400
 
     new_space = ParkingSpace(
-        address=address, # Store the original address provided by user
+        address=address,
         latitude=latitude,
         longitude=longitude,
-        price_amount=price_amount, # Use validated price_amount
-        price_unit=price_unit,     # Use validated price_unit
+        price_amount=price_amount,
+        price_unit=price_unit,
         owner_id=current_user.id,
-        image_url=image_url,
-        is_booked=False # Default for new space
+        is_booked=False
     )
     db.session.add(new_space)
-    db.session.commit()
+    # Commit here to get new_space.id for ParkingSpaceImage instances
+    # Or add all to session and commit once, SQLAlchemy handles order if relationships are set
+    # For simplicity and clarity, let's add space first, then images, then commit.
+
+    images = request.files.getlist('images')
+    for index, file_storage in enumerate(images):
+        if file_storage and file_storage.filename:
+            filename = secure_filename(file_storage.filename)
+            # Consider adding a UUID or timestamp to filename to ensure uniqueness
+            # For now, using the direct secure_filename
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            file_storage.save(filepath)
+            
+            caption = data.get(f'caption_{index}') # Get corresponding caption
+
+            image_record = ParkingSpaceImage(
+                space_id=new_space.id, # This requires new_space to have an ID.
+                                       # If not committed yet, need to handle differently or commit new_space first.
+                                       # A better way: associate objects via relationship before commit
+                image_filename=filename,
+                caption=caption
+            )
+            # Instead of setting space_id directly, append to relationship:
+            # new_space.images.append(image_record) # Assuming 'images' is the backref name
+            # And then add image_record to session.
+            # However, the current ParkingSpaceImage model sets space_id directly
+            # and has a backref that would populate space.images.
+            # To make space_id available, we can flush the session.
+            db.session.add(image_record)
+
+    # If new_space was not committed earlier, all objects (new_space and image_records)
+    # are added to the session and a single commit will persist them.
+    # If new_space.images relationship was used, this would be cleaner.
+    # Given the current structure, and to ensure new_space.id is populated before
+    # image_record is created (if not using relationship append),
+    # we might need to flush or commit new_space earlier.
+    
+    # Let's adjust to add new_space, then add all images, then commit once.
+    # SQLAlchemy should handle the order if ParkingSpaceImage.space relationship is correctly defined.
+    # The `space = relationship('ParkingSpace', backref=db.backref('images', ...))` in image.py
+    # and `space_id = db.Column(Integer, ForeignKey('parking_space.id'), ...)` should allow this.
+    # We need to associate the image with the space object itself.
+
+    # Revised approach for associating images:
+    # Create new_space (don't add to session yet or don't commit)
+    # Create ParkingSpaceImage objects, and append them to new_space.images (the relationship attribute)
+    # Then add new_space to session (which cascades to related images if configured)
+    # Then commit.
+
+    # Re-adjusting the flow for image handling with relationships:
+    # (Assuming 'images' is the relationship attribute on ParkingSpace model,
+    #  which is established by the backref in ParkingSpaceImage model)
+
+    # Clear previous image processing for this re-adjustment
+    # (The above loop for images needs to be part of the new flow)
+    
+    # Corrected flow:
+    # 1. Create ParkingSpace instance (new_space)
+    # 2. For each uploaded image:
+    #    a. Save file
+    #    b. Create ParkingSpaceImage instance (image_record)
+    #    c. Set image_record.image_filename, image_record.caption
+    #    d. Append image_record to new_space.images (the collection)
+    # 3. Add new_space to db.session (this should also prepare related images for commit if cascade is set)
+    # 4. db.session.commit()
+
+    # Let's rewrite the object creation and commit part
+    # Previous new_space and db.session.add(new_space) are fine.
+    # The loop for images needs to correctly associate with new_space.
+
+    # The ParkingSpaceImage model has:
+    # space = db.relationship('ParkingSpace', backref=db.backref('images', lazy='dynamic', cascade='all, delete-orphan'))
+    # This means new_space will have an 'images' attribute.
+
+    processed_images = []
+    files = request.files.getlist('images') # getlist for multiple files
+    for index, file_storage in enumerate(files):
+        if file_storage and file_storage.filename:
+            filename = secure_filename(file_storage.filename)
+            # To make filenames more unique, prepend with space ID and index or a UUID
+            # For now, keeping it simple as per initial plan.
+            # unique_filename = f"{new_space.id}_{index}_{filename}" # Requires new_space.id
+            # This implies new_space needs to be flushed to get an ID.
+            
+            # Let's save file first, then create image record.
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            try:
+                file_storage.save(filepath)
+            except Exception as e:
+                # Handle file save error if necessary
+                print(f"Error saving file {filename}: {e}")
+                # Potentially skip this image or return an error
+                continue 
+
+            caption = data.get(f'caption_{index}')
+            
+            image_record = ParkingSpaceImage(
+                image_filename=filename, 
+                caption=caption
+                # space_id will be set by appending to new_space.images
+            )
+            processed_images.append(image_record)
+
+    if processed_images:
+        new_space.images.extend(processed_images) # Use extend for a list of images
+
+    # Now new_space is created, and image_records are associated via new_space.images
+    # Add new_space to the session. If cascade is set up correctly in the model
+    # (e.g., cascade="all, delete-orphan" on the relationship), 
+    # the associated ParkingSpaceImage objects will also be added/managed.
+    # db.session.add(new_space) was already called.
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        # If commit fails, try to rollback changes to avoid partial data save
+        db.session.rollback()
+        # Optionally, delete saved files if commit fails
+        for record in processed_images:
+            if record.image_filename:
+                try:
+                    os.remove(os.path.join(UPLOAD_FOLDER, record.image_filename))
+                except OSError:
+                    pass # Ignore if file cannot be removed
+        return jsonify({"error": "Failed to create parking space and save images. Database error."}), 500
+        
     return jsonify(new_space.to_dict()), 201
 
 @spaces_bp.route("/spaces", methods=["GET"])

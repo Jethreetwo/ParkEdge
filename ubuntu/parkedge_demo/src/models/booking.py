@@ -32,5 +32,5 @@ class Booking(db.Model):
             'booking_time': self.booking_time.isoformat(),
             'status': self.status,
             'user_username': self.user.username if self.user else None, # Optional: include for convenience
-            'space_address': self.space.address if self.space else None # Optional: include for convenience
+            'space_details': self.space.to_dict() if self.space else None # Include full space details
         }

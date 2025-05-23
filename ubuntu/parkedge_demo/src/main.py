@@ -67,5 +67,14 @@ def serve(path):
             else:
                 return "map_view.html or index.html not found in static folder", 404
 
+@app.route('/uploads/parking_images/<path:filename>')
+def serve_parking_image(filename):
+    # Construct the absolute path to the directory where images are stored.
+    # __file__ is the path to the current file (main.py)
+    # os.path.dirname(__file__) gives the directory of main.py (src/)
+    # Then join with 'uploads' and 'parking_images'
+    upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads', 'parking_images')
+    return send_from_directory(upload_dir, filename)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

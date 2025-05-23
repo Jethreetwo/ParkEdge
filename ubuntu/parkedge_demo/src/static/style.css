@@ -608,3 +608,21 @@ input[type="range"]#max-price-slider:active::-moz-range-thumb {
     outline-offset: 2px;
     box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb, 0,123,255),.25);
 }
+
+/* === Notification Glow Effect === */
+.glow-effect {
+  animation: glow 1.5s infinite alternate;
+  border: 1px solid #ffc107; /* Adjusted to 1px to be less intrusive, color matches keyframes */
+  border-radius: 5px;
+  padding: 2px 4px; /* Added small padding to avoid text touching border */
+  box-shadow: 0 0 5px #ffc107, 0 0 10px #ffc107; /* Initial state consistent with animation */
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 5px #ffc107, 0 0 10px #ffc107;
+  }
+  to {
+    box-shadow: 0 0 15px #ffeb3b, 0 0 20px #ffeb3b; /* Adjusted spread for a bit more bloom */
+  }
+}
