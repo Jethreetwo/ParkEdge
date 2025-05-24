@@ -10,7 +10,9 @@ class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     space_id = db.Column(db.Integer, db.ForeignKey('parking_space.id'), nullable=False)
-    booking_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    booking_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) # This will serve as the start_time
+    end_time = db.Column(db.DateTime, nullable=False)
+    calculated_price = db.Column(db.Float, nullable=False)
     # status could be: 'pending', 'confirmed', 'active', 'completed', 'cancelled'
     status = db.Column(db.String(50), nullable=False, default='confirmed') 
     # Add price_at_booking if price can change and you want to record it
@@ -29,7 +31,9 @@ class Booking(db.Model):
             'id': self.id,
             'user_id': self.user_id,
             'space_id': self.space_id,
-            'booking_time': self.booking_time.isoformat(),
+            'start_time': self.booking_time.isoformat(), # booking_time is used as start_time
+            'end_time': self.end_time.isoformat(),
+            'calculated_price': self.calculated_price,
             'status': self.status,
             'user_username': self.user.username if self.user else None, # Optional: include for convenience
             'space_details': self.space.to_dict() if self.space else None # Include full space details

@@ -186,3 +186,131 @@ def test_parking_space_to_dict_no_images(database):
     assert "images" in space_dict
     assert isinstance(space_dict["images"], list)
     assert len(space_dict["images"]) == 0
+
+from freezegun import freeze_time
+from datetime import datetime, timedelta
+from src.models.booking import Booking # Required for creating bookings
+
+@freeze_time("2024-01-01 10:00:00 UTC")
+def test_space_to_dict_dynamic_booking_status_no_booking(database, test_user):
+    """Test ParkingSpace.to_dict() when there are no active bookings."""
+    space = ParkingSpace(
+        address="No Booking St", latitude=1.0, longitude=1.0,
+        price_amount=10, price_unit="hour", owner_id=test_user.id
+    )
+    database.session.add(space)
+    database.session.commit()
+
+    space_dict = space.to_dict()
+    assert space_dict["is_currently_booked"] is False
+    assert space_dict["booked_until"] is None
+
+@freeze_time("2024-01-01 10:00:00 UTC")
+def test_space_to_dict_dynamic_booking_status_future_booking(database, test_user):
+    """Test ParkingSpace.to_dict() with a booking that starts in the future."""
+    space = ParkingSpace(
+        address="Future Booking St", latitude=2.0, longitude=2.0,
+        price_amount=10, price_unit="hour", owner_id=test_user.id
+    )
+    database.session.add(space)
+    database.session.commit()
+
+    booking_start_time = datetime.utcnow() + timedelta(hours=2) # Starts in 2 hours
+    booking_end_time = booking_start_time + timedelta(hours=3)   # Ends 3 hours after start
+    future_booking = Booking(
+        user_id=test_user.id, space_id=space.id, booking_time=booking_start_time,
+        end_time=booking_end_time, calculated_price=30, status="confirmed"
+    )
+    database.session.add(future_booking)
+    database.session.commit()
+    
+    # At "2024-01-01 10:00:00 UTC", the booking hasn't started yet.
+    space_dict = space.to_dict()
+    assert space_dict["is_currently_booked"] is False 
+    assert space_dict["booked_until"] is None # Should be None as it's not *currently* booked
+
+@freeze_time("2024-01-01 12:00:00 UTC") # Current time is 12:00
+def test_space_to_dict_dynamic_booking_status_current_booking(database, test_user):
+    """Test ParkingSpace.to_dict() with a currently active booking."""
+    space = ParkingSpace(
+        address="Current Booking St", latitude=3.0, longitude=3.0,
+        price_amount=10, price_unit="hour", owner_id=test_user.id
+    )
+    database.session.add(space)
+    database.session.commit()
+
+    booking_start_time = datetime.utcnow() - timedelta(hours=1) # Started at 11:00
+    booking_end_time = datetime.utcnow() + timedelta(hours=2)   # Ends at 14:00
+    current_booking = Booking(
+        user_id=test_user.id, space_id=space.id, booking_time=booking_start_time,
+        end_time=booking_end_time, calculated_price=30, status="confirmed"
+    )
+    database.session.add(current_booking)
+    database.session.commit()
+
+    space_dict = space.to_dict()
+    assert space_dict["is_currently_booked"] is True
+    assert space_dict["booked_until"] == booking_end_time.isoformat()
+
+@freeze_time("2024-01-01 15:00:00 UTC") # Current time is 15:00
+def test_space_to_dict_dynamic_booking_status_expired_booking(database, test_user):
+    """Test ParkingSpace.to_dict() with a booking that has ended."""
+    space = ParkingSpace(
+        address="Expired Booking St", latitude=4.0, longitude=4.0,
+        price_amount=10, price_unit="hour", owner_id=test_user.id
+    )
+    database.session.add(space)
+    database.session.commit()
+
+    booking_start_time = datetime.utcnow() - timedelta(hours=3) # Started at 12:00
+    booking_end_time = datetime.utcnow() - timedelta(hours=1)   # Ended at 14:00
+    expired_booking = Booking(
+        user_id=test_user.id, space_id=space.id, booking_time=booking_start_time,
+        end_time=booking_end_time, calculated_price=20, status="confirmed" # Status could be 'completed'
+    )
+    database.session.add(expired_booking)
+    database.session.commit()
+
+    space_dict = space.to_dict()
+    assert space_dict["is_currently_booked"] is False
+    assert space_dict["booked_until"] is None
+
+@freeze_time("2024-01-01 12:00:00 UTC") # Current time is 12:00
+def test_space_to_dict_dynamic_booking_status_non_active_status(database, test_user):
+    """Test ParkingSpace.to_dict() with a booking that is 'ended' or 'cancelled' but times would be current."""
+    space = ParkingSpace(
+        address="Cancelled Booking St", latitude=5.0, longitude=5.0,
+        price_amount=10, price_unit="hour", owner_id=test_user.id
+    )
+    database.session.add(space)
+    database.session.commit()
+
+    booking_start_time = datetime.utcnow() - timedelta(hours=1) # Started at 11:00
+    booking_end_time = datetime.utcnow() + timedelta(hours=2)   # Ends at 14:00
+    
+    # Cancelled booking
+    cancelled_booking = Booking(
+        user_id=test_user.id, space_id=space.id, booking_time=booking_start_time,
+        end_time=booking_end_time, calculated_price=30, status="cancelled"
+    )
+    database.session.add(cancelled_booking)
+    database.session.commit()
+
+    space_dict_cancelled = space.to_dict()
+    assert space_dict_cancelled["is_currently_booked"] is False
+    assert space_dict_cancelled["booked_until"] is None
+
+    # Ended booking (manually, before its original end_time)
+    ended_booking = Booking(
+        user_id=test_user.id, space_id=space.id, booking_time=booking_start_time,
+        end_time=datetime.utcnow(), # Ended now at 12:00, but original was 14:00
+        calculated_price=10, status="ended" 
+    )
+    # Need a different space for this test to be clean, or remove the cancelled_booking
+    database.session.delete(cancelled_booking) # Remove previous booking on this space for clarity
+    database.session.add(ended_booking)
+    database.session.commit()
+
+    space_dict_ended = space.to_dict()
+    assert space_dict_ended["is_currently_booked"] is False # Because status is 'ended'
+    assert space_dict_ended["booked_until"] is None

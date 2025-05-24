@@ -315,28 +315,73 @@
                                       <b>Rating:</b> ${ratingDisplay}<br>`;
                     
                     const popupDiv = document.createElement("div");
+                    // Store space data with the popupDiv for easy access later
+                    popupDiv.dataset.space = JSON.stringify(space); // Storing the whole space object
+
+                    // Set marker opacity based on current booking status
+                    if (space.is_currently_booked) {
+                        marker.setOpacity(0.6); // Make booked spaces less prominent
+                    } else {
+                        marker.setOpacity(1.0); // Default opacity for available spaces
+                    }
+
+                    // Booking UI Elements or "Booked Until" message
+                    let bookingInteractionHTML = '';
+                    if (!space.is_currently_booked) {
+                        bookingInteractionHTML = `
+                            <hr>
+                            <h4>Book this Space</h4>
+                            <div>
+                                <label for="bookingDuration-${space.id}">Duration:</label>
+                                <input type="number" id="bookingDuration-${space.id}" value="1" min="1" style="width: 60px; margin-right: 5px;">
+                                <span id="bookingPriceUnit-${space.id}">${space.price_unit === 'hour' ? 'hours' : 'days'}</span>
+                            </div>
+                            <p>Total Price: <strong id="calculatedBookingPrice-${space.id}">$--</strong></p>
+                            <p>Leave by: <strong id="bookingLeaveByTime-${space.id}">--</strong></p>
+                            <button class="btn btn-primary book-button" data-space-id="${space.id}" style="margin-top:10px;">Book Now</button>
+                            <hr>
+                        `;
+                    } else {
+                        // Display "Currently booked until" message
+                        const formattedBookedUntil = space.booked_until ? formatTimestamp(space.booked_until) : 'an unknown time';
+                        bookingInteractionHTML = `<p style="font-weight: bold; color: var(--danger-color);">Currently booked until: ${formattedBookedUntil}</p>`;
+                    }
+                    
+                    popupContent += bookingInteractionHTML;
+
+                    // Owner's Payment Information (always shown)
+                    const ownerPaymentInfo = space.owner_details && space.owner_details.payment_info 
+                                            ? space.owner_details.payment_info 
+                                            : "Not provided by owner.";
+                    popupContent += `<p style="margin-top:10px; font-size:0.9em;"><strong>Payment to Owner:</strong> <span id="ownerPaymentInfo-${space.id}">${ownerPaymentInfo}</span></p>`;
+                    
                     popupDiv.innerHTML = popupContent;
 
-                    if (!space.is_booked) {
-                        const bookButton = document.createElement("button");
-                        bookButton.textContent = "Book Now";
-                        // Apply new classes: btn, btn-primary, and retain book-button if it has specific non-overlapping styles
-                        bookButton.className = "btn btn-primary book-button"; 
-                        bookButton.onclick = () => bookSpace(space.id, marker, bookButton); 
-                        popupDiv.appendChild(bookButton);
-                    } else {
-                        const bookedText = document.createElement("p");
-                        bookedText.textContent = "This space is currently booked.";
-                        bookedText.style.fontWeight = "bold";
-                        popupDiv.appendChild(bookedText);
-                        marker.setOpacity(0.6); // Make booked spaces less prominent
+                    // Add event listeners for booking UI only if the space is not currently booked
+                    if (!space.is_currently_booked) {
+                        const durationInput = popupDiv.querySelector(`#bookingDuration-${space.id}`);
+                        if (durationInput) {
+                            durationInput.addEventListener('input', () => {
+                                // The 'space' object here is from the forEach loop context
+                                updateBookingUIDetails(space, durationInput.value); 
+                            });
+                        }
+                        
+                        const bookButton = popupDiv.querySelector(`.book-button[data-space-id="${space.id}"]`);
+                        if (bookButton) {
+                            bookButton.onclick = () => {
+                                const currentDuration = popupDiv.querySelector(`#bookingDuration-${space.id}`).value;
+                                // Pass the 'space' object from the forEach loop context
+                                bookSpace(space, currentDuration, marker, bookButton); 
+                            };
+                        }
                     }
+                    // No need for an 'else' here to set opacity again, it's done at marker creation.
                     
                     const viewReviewsButton = document.createElement("button");
                     viewReviewsButton.textContent = "View Reviews";
-                    // Apply new classes: btn, btn-secondary, btn-small, and retain view-reviews-button if specific non-overlapping styles
                     viewReviewsButton.className = "btn btn-secondary btn-small view-reviews-button"; 
-                    viewReviewsButton.style.marginLeft = "5px"; // Keep margin for spacing
+                    viewReviewsButton.style.marginLeft = "5px"; 
                     viewReviewsButton.onclick = () => openReviewModal(space.id, space.address);
                     popupDiv.appendChild(viewReviewsButton);
 
@@ -353,6 +398,20 @@
                     popupDiv.appendChild(googleMapsButton);
 
                     marker.bindPopup(popupDiv);
+                    
+                    // Add listener to update UI when popup opens
+                    marker.on('popupopen', function() {
+                        // Retrieve the space data stored with the popup's div when it was created
+                        const popupElement = this.getPopup().getContent(); // This is the popupDiv
+                        const spaceDataString = popupElement.dataset.space;
+                        if (spaceDataString) {
+                            const spaceDataFromMarker = JSON.parse(spaceDataString);
+                            const durationInput = popupElement.querySelector(`#bookingDuration-${spaceDataFromMarker.id}`);
+                            if (durationInput && !spaceDataFromMarker.is_currently_booked) {
+                                updateBookingUIDetails(spaceDataFromMarker, durationInput.value);
+                            }
+                        }
+                    });
 
                     // Bind price tooltip to marker
                     let priceTooltipString = "N/A";
@@ -379,73 +438,97 @@
             }
         }
 
-        async function bookSpace(spaceId, marker, button) { // Made async to align with fetch
+        // Function to update calculated price and leave-by time in the popup
+        function updateBookingUIDetails(space, durationValue) {
+            if (!space || !durationValue) return;
+
+            const duration = parseFloat(durationValue);
+            if (isNaN(duration) || duration <= 0) {
+                document.getElementById(`calculatedBookingPrice-${space.id}`).textContent = "$--";
+                document.getElementById(`bookingLeaveByTime-${space.id}`).textContent = "--";
+                return;
+            }
+
+            const priceAmount = parseFloat(space.price_amount);
+            const priceUnit = space.price_unit; // 'hour' or 'day'
+
+            let totalPrice = duration * priceAmount;
+            document.getElementById(`calculatedBookingPrice-${space.id}`).textContent = `$${totalPrice.toFixed(2)}`;
+
+            const startTime = new Date();
+            let leaveByTime;
+            if (priceUnit === 'hour') {
+                leaveByTime = new Date(startTime.getTime() + duration * 60 * 60 * 1000);
+            } else if (priceUnit === 'day') {
+                leaveByTime = new Date(startTime.getTime() + duration * 24 * 60 * 60 * 1000);
+            } else {
+                 document.getElementById(`bookingLeaveByTime-${space.id}`).textContent = "Invalid unit";
+                 return;
+            }
+            document.getElementById(`bookingLeaveByTime-${space.id}`).textContent = leaveByTime.toLocaleString([], {
+                year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+
+        async function bookSpace(space, duration, marker, bookButtonElement) { 
             if (!currentUser) {
-                showToast("Please login to book a space.", "info"); // NEW
+                showToast("Please login to book a space.", "info");
+                return;
+            }
+            
+            const spaceId = space.id;
+            const durationValue = parseFloat(duration);
+            const durationUnit = space.price_unit === 'hour' ? 'hours' : 'days'; // Map to backend expectation
+
+            if (isNaN(durationValue) || durationValue <= 0) {
+                showToast("Please enter a valid duration.", "error");
                 return;
             }
 
             try {
                 const response = await fetch(`/api/spaces/${spaceId}/book`, { 
                     method: "POST",
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        duration: durationValue,
+                        duration_unit: durationUnit
+                    })
                 });
 
-                const responseData = await response.json(); // Try to get JSON regardless of response.ok
+                const responseData = await response.json();
 
                 if (!response.ok) {
-                    showToast(`Error booking space: ${responseData.error || 'Unknown error, please try again.'}`, "error"); // NEW
-                    // If booking failed (e.g. space just got booked), refresh markers to reflect current state
-                    if (response.status === 409 || response.status === 404) { // 409 Conflict (already booked), 404 Not Found
-                        fetchAndDisplaySpaces();
+                    showToast(`Error booking space: ${responseData.error || 'Unknown error, please try again.'}`, "error");
+                    if (response.status === 409 || response.status === 404) {
+                        fetchAndDisplaySpaces(); // Refresh map for critical errors
                     }
-                    return; // Stop further processing
+                    return;
                 }
                 
-                showToast(`Space ${responseData.address} booked successfully!`, "success"); // NEW
+                // Use the confirmed details from the backend response
+                showToast(`Space ${responseData.space_details.address} booked successfully until ${new Date(responseData.end_time).toLocaleString()}! Price: $${responseData.calculated_price.toFixed(2)}`, "success");
 
-                // START: Notification for new instructions
-                if (responseData.images && responseData.images.length > 0) {
+                if (responseData.space_details.images && responseData.space_details.images.length > 0) {
                     localStorage.setItem('newInstructionsAvailable', 'true');
-                    localStorage.setItem('newlyBookedSpaceId', responseData.id.toString()); // Store as string
-                    // Also apply glow effect immediately if the profile link is on the current page
+                    localStorage.setItem('newlyBookedSpaceId', responseData.space_details.id.toString());
                     const profileLink = document.getElementById('myProfileLink');
                     if (profileLink) {
                         profileLink.classList.add('glow-effect');
                     }
                 }
-                // END: Notification for new instructions
                 
-                // Visually update the specific marker immediately
-                if (marker) {
-                     marker.setOpacity(0.6); // Or other visual cue for booked
-                }
-                if (button) {
-                    button.textContent = "Booked";
-                    button.disabled = true;
-                    // Replace button with text or update its parent popup
-                    const parentPopupDiv = button.parentElement;
-                    if(parentPopupDiv){
-                        button.remove(); // Remove book button
-                        const bookedText = document.createElement("p");
-                        bookedText.textContent = "This space is currently booked.";
-                        bookedText.style.fontWeight = "bold";
-                        // Insert bookedText before the "View Reviews" button if it exists
-                        const viewReviewsBtn = parentPopupDiv.querySelector('.view-reviews-button');
-                        if(viewReviewsBtn){
-                            parentPopupDiv.insertBefore(bookedText, viewReviewsBtn);
-                        } else {
-                            parentPopupDiv.appendChild(bookedText);
-                        }
-                    }
-                }
-                // The next poll will also update this, but immediate feedback is good.
-                // Alternatively, call fetchAndDisplaySpaces() here to get the absolute latest state for all markers.
-                // For now, relying on individual update and next poll.
+                // Update UI: The call to fetchAndDisplaySpaces() will re-render all markers
+                // and their popups with the latest availability information.
+                // This is the simplest way to ensure the UI is consistent after a booking.
+                fetchAndDisplaySpaces(); 
+                
+                // No need to manually update the specific marker here because fetchAndDisplaySpaces()
+                // will clear and redraw all markers, including their opacity and popup content.
 
             } catch (error) {
                 console.error("Error booking space:", error);
-                showToast("An unexpected error occurred while booking. Please try again.", "error"); // NEW
+                showToast("An unexpected error occurred while booking. Please try again.", "error");
             }
         }
         

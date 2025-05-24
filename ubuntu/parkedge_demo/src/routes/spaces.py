@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 import os
+from datetime import datetime, timedelta # Added datetime and timedelta
 from src.models import db
 from src.models.space import ParkingSpace
 from src.models.booking import Booking # Import the Booking model
@@ -220,51 +221,89 @@ def get_spaces():
 @spaces_bp.route("/spaces/<int:space_id>/book", methods=["POST"])
 @login_required
 def book_space(space_id):
-    # Use db.session.get for SQLAlchemy 2.0 compatibility if preferred,
-    # or keep ParkingSpace.query.get if using older versions or for consistency.
-    # Assuming ParkingSpace.query.get is fine based on existing code.
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid input. JSON data expected."}), 400
+
+    duration = data.get('duration')
+    duration_unit = data.get('duration_unit') # Expected 'hours' or 'days'
+
+    if not isinstance(duration, (int, float)) or duration <= 0:
+        return jsonify({"error": "Invalid duration. Must be a positive number."}), 400
+    
+    allowed_duration_units = ['hours', 'days']
+    if duration_unit not in allowed_duration_units:
+        return jsonify({"error": f"Invalid duration_unit. Allowed units are: {', '.join(allowed_duration_units)}"}), 400
+
     space = ParkingSpace.query.get(space_id) 
     if not space:
         return jsonify({"error": "Parking space not found"}), 404
 
-    # === New check for concurrent bookings ===
-    # For SQLAlchemy 2.0 style, you might use:
-    # active_booking_count = db.session.query(db.func.count(Booking.id)).filter_by(user_id=current_user.id, status='confirmed').scalar_one_or_none() or 0
-    # Using filter_by().count() for consistency with provided snippet.
+    # Concurrent bookings check (existing logic)
     active_booking_count = Booking.query.filter_by(user_id=current_user.id, status='confirmed').count()
-    MAX_CONCURRENT_BOOKINGS = 3
+    MAX_CONCURRENT_BOOKINGS = 3 # This could be a config value
     if active_booking_count >= MAX_CONCURRENT_BOOKINGS:
-        return jsonify({"error": f"You have reached the maximum limit of {MAX_CONCURRENT_BOOKINGS} active bookings."}), 403 # Forbidden
-    # === End of new check ===
+        return jsonify({"error": f"You have reached the maximum limit of {MAX_CONCURRENT_BOOKINGS} active bookings."}), 403
     
-    # Prevent users from booking their own spaces
-    # Ensure space.owner_id is available (added in a previous subtask)
+    # Prevent booking own space (existing logic)
     if hasattr(space, 'owner_id') and space.owner_id == current_user.id:
-        return jsonify({"error": "You cannot book your own parking space"}), 403 # 403 Forbidden
+        return jsonify({"error": "You cannot book your own parking space"}), 403
 
-    if space.is_booked: # This check might be enhanced later by looking at active bookings
-        return jsonify({"error": "Parking space is already booked"}), 409 # 409 Conflict is often better for "already exists"
+    # Availability check (simple version, to be enhanced for time slots)
+    if space.is_booked: 
+        return jsonify({"error": "Parking space is already marked as booked (simple check)"}), 409
+
+    # Calculate start_time, end_time, total_price
+    start_time = datetime.utcnow() # This will be set as booking_time in the model
+
+    if duration_unit == 'hours':
+        end_time = start_time + timedelta(hours=duration)
+    elif duration_unit == 'days':
+        end_time = start_time + timedelta(days=duration)
+    else:
+        # This case should be caught by earlier validation, but defensive coding
+        return jsonify({"error": "Internal error: Unhandled duration unit."}), 500
+
+    # Price calculation (simplified: assumes duration_unit matches space.price_unit or is directly convertible)
+    # A more robust solution would handle conversions or disallow incompatible units.
+    calculated_price = 0
+    if space.price_unit == 'hour' and duration_unit == 'hours':
+        calculated_price = space.price_amount * duration
+    elif space.price_unit == 'day' and duration_unit == 'days':
+        calculated_price = space.price_amount * duration
+    elif space.price_unit == 'day' and duration_unit == 'hours':
+        # Example: Convert daily price to hourly for calculation if duration is in hours.
+        # This assumes a 24-hour day for proration.
+        # This logic might need refinement based on business rules (e.g., minimum 1 day charge).
+        calculated_price = (space.price_amount / 24) * duration
+    elif space.price_unit == 'hour' and duration_unit == 'days':
+        # Example: If space is priced per hour, but booking is for days.
+        # Convert days to hours for calculation.
+        calculated_price = space.price_amount * (duration * 24)
+    else:
+        # This combination should ideally be validated or handled more gracefully.
+        # For now, returning an error if units are mismatched in a way not handled above.
+        return jsonify({"error": f"Price unit mismatch or unsupported calculation: space priced per {space.price_unit}, booking requested in {duration_unit}."}), 400
     
-    # Create a new booking record
+    if space.price_amount is None: # Should not happen if model validation is correct
+        return jsonify({"error": "Space price not set."}), 500
+
     new_booking = Booking(
         user_id=current_user.id,
         space_id=space.id,
+        booking_time=start_time, # Explicitly set, though model has default for creation time
+        end_time=end_time,
+        calculated_price=round(calculated_price, 2), # Round to 2 decimal places
         status='confirmed' 
-        # booking_time defaults to now() via model default
-        # price_at_booking could be added if needed: price_at_booking=space.price
     )
     db.session.add(new_booking)
     
-    # Keep the original is_booked logic for now.
-    # This flag on the space might be useful for a quick "is available" check on the map,
-    # while the Booking table holds detailed history and future/active bookings.
-    space.is_booked = True 
+    # The space.is_booked flag is no longer directly set here.
+    # Availability is dynamically determined by ParkingSpace.to_dict()
     
-    db.session.commit() # Commit both the new booking and the space update
+    db.session.commit() 
     
-    # Return the space details, or perhaps the booking details, or both
-    # For now, returning space details as per original function
-    return jsonify(space.to_dict()), 200
+    return jsonify(new_booking.to_dict()), 200
 
 @spaces_bp.route('/me/spaces', methods=['GET'])
 @login_required

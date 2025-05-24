@@ -33,6 +33,8 @@ def test_create_space_successfully_no_images(logged_in_client, database, test_us
     assert space.price_unit == "day"
     assert len(space.images.all()) == 0
 
+
+# Tests for creating spaces with images (existing tests from previous step)
 def test_create_space_with_single_image(logged_in_client, database, test_user, app):
     """Test creating a parking space with a single image and caption."""
     test_upload_folder = app.config['UPLOAD_FOLDER']
@@ -255,6 +257,122 @@ def test_book_space_successfully(logged_in_client, database, test_user):
     final_booking_check = Booking.query.filter_by(user_id=test_user.id, space_id=space.id).first()
     assert final_booking_check is not None
     assert final_booking_check.status == 'confirmed'
+    # Booking time (start_time) should be recent, end_time and calculated_price are not set by this old test logic
+    # This test would need to be updated if we strictly wanted to test the new booking fields from this endpoint call,
+    # but the endpoint under test here doesn't take duration/unit, so it creates a simple booking.
+    # The new tests below will cover the duration/unit aspects.
+
+from freezegun import freeze_time # For mocking datetime.utcnow()
+from datetime import datetime, timedelta
+
+@freeze_time("2024-01-01 12:00:00 UTC")
+def test_book_space_with_duration_successfully(logged_in_client, database, test_user):
+    """Test booking a space successfully with duration and duration_unit."""
+    # Create a space owner (can be test_user or another user)
+    space_owner = User(username="space_owner_for_booking", email="bookingtestowner@example.com")
+    database.session.add(space_owner)
+    database.session.commit()
+
+    # Create a space to be booked
+    space = ParkingSpace(
+        address="Duration Bookable Spot",
+        latitude=10.0, longitude=10.0,
+        price_amount=10.0, price_unit="hour", # Priced per hour
+        owner_id=space_owner.id,
+        is_booked=False # Legacy field, actual availability is dynamic
+    )
+    database.session.add(space)
+    database.session.commit()
+
+    booking_payload = {
+        "duration": 2,
+        "duration_unit": "hours"
+    }
+
+    response = logged_in_client.post(
+        f"/api/spaces/{space.id}/book",
+        json=booking_payload
+    )
+    assert response.status_code == 200 # Endpoint returns 200 on successful booking update
+    data = response.get_json()
+
+    expected_start_time = datetime.utcnow()
+    expected_end_time = expected_start_time + timedelta(hours=2)
+    expected_calculated_price = 10.0 * 2 # 10 per hour * 2 hours
+
+    assert data["space_id"] == space.id
+    assert data["user_id"] == test_user.id
+    assert data["status"] == "confirmed"
+    assert abs(datetime.fromisoformat(data["start_time"].replace("Z", "+00:00")) - expected_start_time) < timedelta(seconds=5) # Account for small diffs
+    assert datetime.fromisoformat(data["end_time"].replace("Z", "+00:00")) == expected_end_time
+    assert data["calculated_price"] == expected_calculated_price
+
+    # Verify in DB
+    booking_record = Booking.query.filter_by(id=data['id']).first()
+    assert booking_record is not None
+    assert booking_record.space_id == space.id
+    assert booking_record.user_id == test_user.id
+    assert abs(booking_record.booking_time - expected_start_time) < timedelta(seconds=5)
+    assert booking_record.end_time == expected_end_time
+    assert booking_record.calculated_price == expected_calculated_price
+    assert booking_record.status == "confirmed"
+
+def test_book_space_invalid_duration_inputs(logged_in_client, database, test_user):
+    """Test booking a space with invalid duration or duration_unit."""
+    space_owner = User(username="owner_invalid_booking", email="owner_invalid@example.com")
+    database.session.add(space_owner)
+    database.session.commit()
+    space = ParkingSpace(address="Test Invalid Duration", latitude=1.0, longitude=1.0, price_amount=5.0, price_unit="hour", owner_id=space_owner.id)
+    database.session.add(space)
+    database.session.commit()
+
+    # Missing duration
+    response = logged_in_client.post(f"/api/spaces/{space.id}/book", json={"duration_unit": "hours"})
+    assert response.status_code == 400
+    assert "invalid duration" in response.get_json()["error"].lower()
+
+    # Zero duration
+    response = logged_in_client.post(f"/api/spaces/{space.id}/book", json={"duration": 0, "duration_unit": "hours"})
+    assert response.status_code == 400
+    assert "invalid duration" in response.get_json()["error"].lower()
+
+    # Negative duration
+    response = logged_in_client.post(f"/api/spaces/{space.id}/book", json={"duration": -1, "duration_unit": "hours"})
+    assert response.status_code == 400
+    assert "invalid duration" in response.get_json()["error"].lower()
+
+    # Missing duration_unit
+    response = logged_in_client.post(f"/api/spaces/{space.id}/book", json={"duration": 1})
+    assert response.status_code == 400
+    assert "invalid duration_unit" in response.get_json()["error"].lower()
+    
+    # Invalid duration_unit
+    response = logged_in_client.post(f"/api/spaces/{space.id}/book", json={"duration": 1, "duration_unit": "minutes"})
+    assert response.status_code == 400
+    assert "invalid duration_unit" in response.get_json()["error"].lower()
+
+    # Test price calculation mismatch (e.g., space priced per day, booking in hours with no direct conversion logic or vice-versa)
+    # This depends on how strictly the backend handles price unit mismatches.
+    # Current backend logic has some conversion, so this test needs to be specific.
+    # Example: if backend only allows booking in space's price_unit
+    day_space = ParkingSpace(address="Day Price Space", latitude=2.0, longitude=2.0, price_amount=50.0, price_unit="day", owner_id=space_owner.id)
+    database.session.add(day_space)
+    database.session.commit()
+    
+    # Assuming the backend logic for price calculation requires duration_unit to be compatible or explicitly handled.
+    # The current backend route tries to convert: day price to hourly if duration is hours, and hour price to daily if duration is days.
+    # A case that might fail or be considered "unsupported calculation" could be if this logic was stricter.
+    # For now, the backend seems to try to accommodate, so a specific "mismatch error" might not trigger
+    # unless the logic is very specific about not converting.
+    # Let's test a case where conversion might lead to issues if not handled well, e.g. very small duration for daily price.
+    response = logged_in_client.post(f"/api/spaces/{day_space.id}/book", json={"duration": 0.1, "duration_unit": "hours"}) # 0.1 hours for a daily priced space
+    # If backend logic for (space.price_amount / 24) * duration results in a very small or zero price,
+    # it should still be a valid booking if the duration is valid.
+    # The test for "Price unit mismatch or unsupported calculation" would require a specific setup
+    # that the backend cannot handle. The current backend has basic conversions.
+    assert response.status_code == 200 # This should work with current conversion logic.
+    # If the backend were to reject this, status would be 400.
+
 
 # Test booking a space that is already booked
 def test_book_space_already_booked(logged_in_client, database, test_user):

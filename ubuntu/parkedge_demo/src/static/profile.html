@@ -379,6 +379,10 @@
 
     async function loadUserBookings() {
         const bookingsListDiv = document.getElementById('bookings-list');
+        if (!bookingsListDiv) { // Guard against element not found
+            console.error("Bookings list container not found.");
+            return;
+        }
         const modal = document.getElementById("instructionsModal");
         const modalContentDiv = document.getElementById("modal-instructions-content");
 
@@ -453,14 +457,40 @@
                     }
 
 
+                    // Renaming booking_time to start_time for clarity as per model changes
+                    // Assuming booking.start_time and booking.end_time are now available from to_dict()
+                    let bookingStatusHTML = `<strong>Status:</strong> <span id="status-booking-${booking.id}">${booking.status}</span>`;
+                    let endBookingButtonHTML = '';
+
+                    // Check if booking can be ended
+                    // (e.g., status is 'confirmed' or 'active' and end_time hasn't passed, or backend handles this)
+                    // For simplicity, let's assume 'confirmed' means it's active and can be ended.
+                    if (booking.status === 'confirmed' || booking.status === 'active') {
+                        endBookingButtonHTML = `
+                            <button class="btn btn-warning btn-small end-booking-btn" data-booking-id="${booking.id}" style="margin-top: 10px;">End Booking Now</button>
+                        `;
+                    }
+                    
+                    // Display start_time and the *original* (calculated) end_time from the booking object
+                    // The actual end time might change if the user ends it early.
+                    const startTimeDisplay = booking.start_time ? new Date(booking.start_time).toLocaleString() : 'N/A';
+                    const originalEndTimeDisplay = booking.end_time ? new Date(booking.end_time).toLocaleString() : 'N/A';
+                    const calculatedPriceDisplay = booking.calculated_price !== null ? `$${booking.calculated_price.toFixed(2)}` : 'N/A';
+
+
                     bookingElement.innerHTML = `
                         <div class="card-body">
                             <h5 class="card-title">Booking for: ${spaceAddress}</h5>
                             <p class="card-text">
-                                <strong>Booking Time:</strong> ${new Date(booking.booking_time).toLocaleString()}<br>
-                                <strong>Status:</strong> ${booking.status}
+                                <strong>Start Time:</strong> ${startTimeDisplay}<br>
+                                <strong>Scheduled End Time:</strong> ${originalEndTimeDisplay}<br>
+                                <strong>Calculated Price:</strong> ${calculatedPriceDisplay}<br>
+                                ${bookingStatusHTML}
                             </p>
                             ${instructionsButtonHTML}
+                            <div id="end-button-container-${booking.id}">
+                                ${endBookingButtonHTML}
+                            </div>
                         </div>
                     `;
                     bookingsListDiv.appendChild(bookingElement);
@@ -470,6 +500,68 @@
             console.error('Error fetching user bookings:', error);
             bookingsListDiv.innerHTML = '<p>Error loading your bookings. Please try again later.</p>';
         }
+    }
+
+    // Event listener for "End Booking" buttons using event delegation
+    const bookingsListContainer = document.getElementById('bookings-list');
+    if (bookingsListContainer) {
+        bookingsListContainer.addEventListener('click', async function(event) {
+            if (event.target && event.target.classList.contains('end-booking-btn')) {
+                const button = event.target;
+                const bookingId = button.dataset.bookingId;
+                
+                if (!confirm(`Are you sure you want to end booking ${bookingId}?`)) {
+                    return;
+                }
+
+                button.disabled = true; // Disable button to prevent multiple clicks
+                button.textContent = 'Ending...';
+
+                try {
+                    const response = await fetch(`/api/bookings/${bookingId}/end`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            // CSRF token might be needed if enabled, but typically not for JSON APIs with session auth
+                        }
+                    });
+
+                    const responseData = await response.json();
+
+                    if (response.ok) {
+                        showToast(`Booking ${bookingId} ended successfully.`, 'success');
+                        
+                        // Update UI for this booking
+                        const statusSpan = document.getElementById(`status-booking-${bookingId}`);
+                        if (statusSpan) {
+                            statusSpan.textContent = responseData.status; // Should be 'ended'
+                        }
+                        // Update displayed end time if your UI shows it and it's part of responseData
+                        // e.g., const endTimeDisplay = document.getElementById(`endTime-booking-${bookingId}`);
+                        // if (endTimeDisplay && responseData.end_time) {
+                        //    endTimeDisplay.textContent = new Date(responseData.end_time).toLocaleString();
+                        // }
+
+                        // Remove the "End Booking" button
+                        const buttonContainer = document.getElementById(`end-button-container-${bookingId}`);
+                        if (buttonContainer) {
+                            buttonContainer.innerHTML = ''; // Or set to some confirmation text
+                        }
+                        // Optionally, refresh all bookings: loadUserBookings();
+                        // This is simpler but might be a slightly less smooth UX than targeted update.
+                    } else {
+                        showToast(`Error ending booking: ${responseData.error || 'Unknown error'}`, 'error');
+                        button.disabled = false; // Re-enable button on failure
+                        button.textContent = 'End Booking Now';
+                    }
+                } catch (error) {
+                    console.error('Failed to end booking:', error);
+                    showToast('An unexpected error occurred while trying to end the booking.', 'error');
+                    button.disabled = false; // Re-enable button on error
+                    button.textContent = 'End Booking Now';
+                }
+            }
+        });
     }
     </script>
 </body>
