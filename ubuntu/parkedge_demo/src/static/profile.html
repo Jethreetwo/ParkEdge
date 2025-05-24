@@ -166,12 +166,11 @@
 
     <script>
     let currentUser = null;
+    let myProfileLinkElement = null; // Scoped variable for profile link
+
     document.addEventListener("DOMContentLoaded", () => {
-        // Apply glow effect if new instructions are available
-        const profileLink = document.getElementById('myProfileLink');
-        if (localStorage.getItem('newInstructionsAvailable') === 'true' && profileLink) {
-            profileLink.classList.add('glow-effect');
-        }
+        myProfileLinkElement = document.getElementById('myProfileLink'); // Assign here
+        // Glow effect logic moved to loadUserBookings and auth status check
 
         const loginButton = document.getElementById('login-button');
         const userInfoDiv = document.getElementById('user-info');
@@ -210,7 +209,7 @@
                     phoneNumberEdit.value = currentUser.phone_number || "";
 
                     loadListedSpaces();
-                    loadUserBookings(); // This function will be updated
+                    loadUserBookings(); 
                 } else {
                     currentUser = null;
                     loginButton.style.display = 'inline-block';
@@ -218,6 +217,13 @@
                     profileDetailsDiv.innerHTML = '<p>Please <a href="/auth/login/google">login</a> to view your profile.</p>';
                     document.getElementById('listed-spaces-list').innerHTML = '<p>Please login to view your listed spaces.</p>';
                     document.getElementById('bookings-list').innerHTML = '<p>Please login to view your bookings.</p>';
+                    
+                    // If user is not authenticated, clear any pending instruction glow
+                    if (localStorage.getItem('newInstructionsAvailable') === 'true' && myProfileLinkElement) {
+                        localStorage.removeItem('newInstructionsAvailable');
+                        localStorage.removeItem('newlyBookedSpaceId');
+                        myProfileLinkElement.classList.remove('glow-effect');
+                    }
                 }
             })
             .catch(error => {
@@ -274,11 +280,12 @@
                         
                         showToast("Profile details saved successfully!", "success");
                     } else {
+                        console.error('Save profile server error:', responseData); // Log server error object
                         showToast(`Error: ${responseData.error || 'Failed to save profile.'}`, "error");
                     }
                 } catch (error) {
-                    console.error('Error saving profile details:', error);
-                    showToast("An unexpected error occurred while saving profile details.", "error");
+                    console.error('Save profile fetch error:', error); // Log actual fetch error
+                    showToast("An unexpected error occurred while saving profile details. Check console for details.", "error");
                 }
             });
         }
@@ -388,18 +395,26 @@
 
         if (!currentUser) {
             bookingsListDiv.innerHTML = '<p>Please login to view your bookings.</p>';
+            // Clear glow if user becomes unauthenticated after page load but before this runs
+            if (myProfileLinkElement) myProfileLinkElement.classList.remove('glow-effect');
+            localStorage.removeItem('newInstructionsAvailable');
+            localStorage.removeItem('newlyBookedSpaceId');
             return;
         }
         try {
             const response = await fetch('/api/bookings/me'); 
             if (!response.ok) {
-                 if (response.status === 401) {
+                 if (response.status === 401) { // Should not happen if currentUser is set, but defensive
                      bookingsListDiv.innerHTML = '<p>Please login to view your bookings.</p>';
+                     if (myProfileLinkElement) myProfileLinkElement.classList.remove('glow-effect');
+                     localStorage.removeItem('newInstructionsAvailable');
+                     localStorage.removeItem('newlyBookedSpaceId');
                      return;
                 }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            const bookings = await response.json();
+            const bookings = await response.json(); // This is the 'bookings' array for the logic below
+            
             if (bookings.length === 0) {
                 bookingsListDiv.innerHTML = `
                     <p>You don't have any bookings yet.</p>
@@ -438,8 +453,8 @@
                             if (newlyBookedId && spaceDetails.id.toString() === newlyBookedId) {
                                 localStorage.removeItem('newInstructionsAvailable');
                                 localStorage.removeItem('newlyBookedSpaceId');
-                                if (profileLink) {
-                                    profileLink.classList.remove('glow-effect');
+                                if (myProfileLinkElement) { // Use scoped variable
+                                    myProfileLinkElement.classList.remove('glow-effect');
                                 }
                             }
                         };
@@ -478,6 +493,7 @@
                     const calculatedPriceDisplay = booking.calculated_price !== null ? `$${booking.calculated_price.toFixed(2)}` : 'N/A';
 
 
+                    // Set main structure of bookingElement.innerHTML with a placeholder for the instructions button
                     bookingElement.innerHTML = `
                         <div class="card-body">
                             <h5 class="card-title">Booking for: ${spaceAddress}</h5>
@@ -487,18 +503,96 @@
                                 <strong>Calculated Price:</strong> ${calculatedPriceDisplay}<br>
                                 ${bookingStatusHTML}
                             </p>
-                            ${instructionsButtonHTML}
+                            <div class="instructions-button-placeholder" style="margin-top: 10px; margin-bottom: 10px;"></div>
                             <div id="end-button-container-${booking.id}">
                                 ${endBookingButtonHTML}
                             </div>
                         </div>
                     `;
+
+                    // Find the placeholder and append the actual button DOM element
+                    const placeholder = bookingElement.querySelector('.instructions-button-placeholder');
+                    if (placeholder) { // Ensure placeholder exists
+                        if (spaceDetails && spaceDetails.images && spaceDetails.images.length > 0) {
+                            const instructionsButton = document.createElement('button');
+                            instructionsButton.textContent = 'View Instructions';
+                            instructionsButton.className = 'btn btn-secondary btn-instructions';
+                            instructionsButton.onclick = () => {
+                                modalContentDiv.innerHTML = ''; // Clear previous content
+                                spaceDetails.images.forEach(imgData => {
+                                    const imgElement = document.createElement('img');
+                                    imgElement.src = `/uploads/parking_images/${imgData.image_filename}`;
+                                    imgElement.alt = imgData.caption || 'Parking instruction image';
+                                    
+                                    const captionElement = document.createElement('p');
+                                    captionElement.textContent = imgData.caption || 'No caption provided.';
+                                    
+                                    modalContentDiv.appendChild(imgElement);
+                                    modalContentDiv.appendChild(captionElement);
+                                });
+                                modal.style.display = 'block';
+
+                                // Dismiss notification (ensure myProfileLinkElement is accessible)
+                                const newlyBookedId = localStorage.getItem('newlyBookedSpaceId');
+                                if (newlyBookedId && spaceDetails.id.toString() === newlyBookedId && myProfileLinkElement) {
+                                    localStorage.removeItem('newInstructionsAvailable');
+                                    localStorage.removeItem('newlyBookedSpaceId');
+                                    myProfileLinkElement.classList.remove('glow-effect');
+                                }
+                            };
+                            placeholder.appendChild(instructionsButton);
+                        } else {
+                            const disabledButton = document.createElement('button');
+                            disabledButton.className = 'btn btn-instructions';
+                            disabledButton.disabled = true;
+                            disabledButton.textContent = 'No Instructions Provided';
+                            placeholder.appendChild(disabledButton);
+                        }
+                    }
+                    
                     bookingsListDiv.appendChild(bookingElement);
                 });
             }
+
+            // Glow logic after processing all bookings
+            const newInstructionsFlag = localStorage.getItem('newInstructionsAvailable');
+            const newlyBookedIdFromStorage = localStorage.getItem('newlyBookedSpaceId');
+
+            if (myProfileLinkElement) { // Ensure link element is available
+                if (newInstructionsFlag === 'true' && newlyBookedIdFromStorage) {
+                    let activeBookingForGlowFound = false;
+                    if (bookings && bookings.length > 0) {
+                        for (const booking of bookings) {
+                            if (booking.space_details &&
+                                booking.space_details.id.toString() === newlyBookedIdFromStorage &&
+                                (booking.status === 'confirmed' || booking.status === 'active')) {
+                                activeBookingForGlowFound = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (activeBookingForGlowFound) {
+                        myProfileLinkElement.classList.add('glow-effect');
+                    } else {
+                        // No active booking matches the flag, so clear it
+                        localStorage.removeItem('newInstructionsAvailable');
+                        localStorage.removeItem('newlyBookedSpaceId');
+                        myProfileLinkElement.classList.remove('glow-effect');
+                    }
+                } else {
+                    // No flag, ensure glow is off
+                    myProfileLinkElement.classList.remove('glow-effect');
+                }
+            }
+
         } catch (error) {
             console.error('Error fetching user bookings:', error);
             bookingsListDiv.innerHTML = '<p>Error loading your bookings. Please try again later.</p>';
+            // Clear glow on error as well
+            if (myProfileLinkElement) myProfileLinkElement.classList.remove('glow-effect');
+            localStorage.removeItem('newInstructionsAvailable');
+            localStorage.removeItem('newlyBookedSpaceId');
         }
     }
 
