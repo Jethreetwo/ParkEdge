@@ -41,11 +41,14 @@ with app.app_context():
 from src.routes.spaces import spaces_bp
 from src.routes.auth import auth_bp 
 from src.routes.reviews import reviews_bp
-from src.routes.booking_routes import bookings_bp # Added this line
+from src.routes.booking_routes import bookings_bp 
+from src.routes.user import user_bp # Import user_bp
+
 app.register_blueprint(spaces_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/auth') 
 app.register_blueprint(reviews_bp, url_prefix='/api') 
-app.register_blueprint(bookings_bp) # Added this line, url_prefix is in the blueprint itself
+app.register_blueprint(bookings_bp) 
+app.register_blueprint(user_bp, url_prefix='/api/users') # Register user_bp
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -66,6 +69,15 @@ def serve(path):
                 return send_from_directory(static_folder_path, 'index.html')
             else:
                 return "map_view.html or index.html not found in static folder", 404
+
+@app.route('/uploads/parking_images/<path:filename>')
+def serve_parking_image(filename):
+    # Construct the absolute path to the directory where images are stored.
+    # __file__ is the path to the current file (main.py)
+    # os.path.dirname(__file__) gives the directory of main.py (src/)
+    # Then join with 'uploads' and 'parking_images'
+    upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads', 'parking_images')
+    return send_from_directory(upload_dir, filename)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

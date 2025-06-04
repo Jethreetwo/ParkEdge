@@ -8,6 +8,7 @@ from .user import User
 from .space import ParkingSpace
 from .review import Review
 from .booking import Booking
+from .image import ParkingSpaceImage
 
-__all__ = ['db', 'User', 'ParkingSpace', 'Review', 'Booking']
+__all__ = ['db', 'User', 'ParkingSpace', 'Review', 'Booking', 'ParkingSpaceImage']
 

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile - ParkEdge</title>
     <link rel="stylesheet" href="/static/style.css">
-    <!-- Add any specific styles for profile page if needed later -->
     <style>
         .profile-section {
             background-color: #fff;
@@ -28,6 +27,65 @@
             border-bottom: none;
         }
         .info-label { font-weight: bold; }
+
+        /* Modal Styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.6); 
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+            max-width: 600px;
+            border-radius: 8px;
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        #modal-instructions-content img {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        #modal-instructions-content p {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .btn-instructions {
+            padding: 8px 12px;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+        .btn-instructions:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -36,7 +94,7 @@
         <nav>
             <a href="/static/map_view.html">Find Parking</a>
             <a href="/static/list_space.html">List Your Space</a>
-            <a href="/static/profile.html">My Profile</a>
+            <a href="/static/profile.html" id="myProfileLink">My Profile</a>
             <div id="user-auth-section" style="display: inline-block; margin-left: 20px;">
                 <a href="/auth/login/google" id="login-button" style="display:none;">Login with Google</a>
                 <div id="user-info" style="display:none;">
@@ -53,17 +111,13 @@
             <h2>My Profile Information</h2>
             <div id="profile-details">
                 <p>Loading profile...</p>
-                <!-- Profile details will be populated by JavaScript -->
-                <!-- Phone number will be added here by JS or can be static HTML structure then populated -->
             </div>
-            <!-- Edit fields for profile details -->
             <div style="margin-top:15px;">
                  <h4>Edit Profile Details</h4>
                  <div class="info-item">
                     <label for="phone-number-edit" class="info-label">Phone Number:</label>
                     <input type="text" id="phone-number-edit" placeholder="Your phone number (optional)">
                  </div>
-                 <!-- Payment info edit is in its own section below -->
             </div>
         </div>
 
@@ -71,7 +125,6 @@
             <h2>My Listed Parking Spaces</h2>
             <div id="listed-spaces-list">
                 <p>Loading listed spaces...</p>
-                <!-- Listed spaces will be populated by JavaScript -->
             </div>
         </div>
 
@@ -79,7 +132,6 @@
             <h2>My Bookings</h2>
             <div id="bookings-list">
                 <p>Loading bookings...</p>
-                <!-- Bookings will be populated by JavaScript -->
             </div>
         </div>
 
@@ -90,14 +142,23 @@
                 Loading current payment info...
             </div>
             <textarea id="payment-info-edit" rows="4" placeholder="Enter your payment details here..."></textarea>
-            <!-- Button and status paragraph IDs will be updated by JS or directly here -->
         </div>
         
-        <div class="profile-section" style="text-align: center;"> <!-- Centered save button -->
+        <div class="profile-section" style="text-align: center;">
              <button id="save-profile-button" class="btn btn-primary">Save All Profile Details</button>
-             <!-- <p id="profile-status" style="margin-top: 10px; font-weight: bold;"></p> --> <!-- Removed as toast notifications will be used -->
         </div>
     </main>
+
+    <!-- Instructions Modal -->
+    <div id="instructionsModal" class="modal">
+      <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2>Parking Instructions</h2>
+        <div id="modal-instructions-content">
+          <!-- Images and captions will be loaded here -->
+        </div>
+      </div>
+    </div>
 
     <footer>
         <p>&copy; 2025 ParkEdge</p>
@@ -105,7 +166,12 @@
 
     <script>
     let currentUser = null;
+    let myProfileLinkElement = null; // Scoped variable for profile link
+
     document.addEventListener("DOMContentLoaded", () => {
+        myProfileLinkElement = document.getElementById('myProfileLink'); // Assign here
+        // Glow effect logic moved to loadUserBookings and auth status check
+
         const loginButton = document.getElementById('login-button');
         const userInfoDiv = document.getElementById('user-info');
         const usernameDisplay = document.getElementById('username-display');
@@ -134,18 +200,16 @@
                         </div>
                     `;
                     
-                    // Populate payment info display and textarea
                     const paymentInfoDisplay = document.getElementById('current-payment-info-display');
                     const paymentInfoEdit = document.getElementById('payment-info-edit');
                     paymentInfoDisplay.textContent = currentUser.payment_info || "No payment information provided yet.";
                     paymentInfoEdit.value = currentUser.payment_info || ""; 
                     
-                    // Populate phone number edit field
                     const phoneNumberEdit = document.getElementById('phone-number-edit');
                     phoneNumberEdit.value = currentUser.phone_number || "";
 
                     loadListedSpaces();
-                    loadUserBookings();
+                    loadUserBookings(); 
                 } else {
                     currentUser = null;
                     loginButton.style.display = 'inline-block';
@@ -153,6 +217,13 @@
                     profileDetailsDiv.innerHTML = '<p>Please <a href="/auth/login/google">login</a> to view your profile.</p>';
                     document.getElementById('listed-spaces-list').innerHTML = '<p>Please login to view your listed spaces.</p>';
                     document.getElementById('bookings-list').innerHTML = '<p>Please login to view your bookings.</p>';
+                    
+                    // If user is not authenticated, clear any pending instruction glow
+                    if (localStorage.getItem('newInstructionsAvailable') === 'true' && myProfileLinkElement) {
+                        localStorage.removeItem('newInstructionsAvailable');
+                        localStorage.removeItem('newlyBookedSpaceId');
+                        myProfileLinkElement.classList.remove('glow-effect');
+                    }
                 }
             })
             .catch(error => {
@@ -160,29 +231,24 @@
                 loginButton.style.display = 'inline-block';
                 userInfoDiv.style.display = 'none';
                 profileDetailsDiv.innerHTML = '<p>Error loading profile information. Please try again later.</p>';
-                // Also clear payment and phone sections if auth fails
                 document.getElementById('current-payment-info-display').innerHTML = '';
                 document.getElementById('payment-info-edit').value = '';
                 const currentPhoneNumberDisplay = document.getElementById('current-phone-number-display');
-                if(currentPhoneNumberDisplay) currentPhoneNumberDisplay.textContent = "N/A"; // Check if exists before setting
+                if(currentPhoneNumberDisplay) currentPhoneNumberDisplay.textContent = "N/A";
                 document.getElementById('phone-number-edit').value = '';
-                // document.getElementById('profile-status').innerHTML = ''; // Removed
             });
 
-        // Event listener for saving profile details (payment info and phone number)
         const saveProfileButton = document.getElementById('save-profile-button'); 
         const paymentInfoEdit = document.getElementById('payment-info-edit');
         const phoneNumberEdit = document.getElementById('phone-number-edit');
-        // const profileStatus = document.getElementById('profile-status'); // No longer needed for primary feedback
         const paymentInfoDisplay = document.getElementById('current-payment-info-display');
-        const currentPhoneNumberDisplay = document.getElementById('current-phone-number-display'); 
+        // currentPhoneNumberDisplay is defined inside the auth fetch, ensure it's accessible or re-fetch if needed
+        // For simplicity, assuming currentPhoneNumberDisplay is correctly updated by the auth fetch.
 
-        if (saveProfileButton && paymentInfoEdit && phoneNumberEdit && paymentInfoDisplay && currentPhoneNumberDisplay) { // Removed profileStatus from check
+        if (saveProfileButton && paymentInfoEdit && phoneNumberEdit && paymentInfoDisplay) {
             saveProfileButton.addEventListener('click', async () => {
                 if (!currentUser) {
-                    // profileStatus.textContent = "You must be logged in to save profile details."; // OLD
-                    // profileStatus.style.color = "red"; // OLD
-                    showToast("You must be logged in to save profile details.", "error"); // NEW
+                    showToast("You must be logged in to save profile details.", "error");
                     return;
                 }
                 
@@ -195,12 +261,9 @@
                 };
 
                 try {
-                    // Endpoint is /api/users/me/profile as defined in user.py (assuming user_bp is registered with /api/users)
                     const response = await fetch('/api/users/me/profile', { 
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(profileData)
                     });
                     const responseData = await response.json();
@@ -210,65 +273,65 @@
 
                         paymentInfoDisplay.textContent = currentUser.payment_info || "No payment information provided yet.";
                         paymentInfoEdit.value = currentUser.payment_info || ""; 
-                        currentPhoneNumberDisplay.textContent = currentUser.phone_number || "Not provided";
+                        // Need to update the phone number display in the profile details section
+                        const currentPhoneNumberDisplaySpan = document.getElementById('current-phone-number-display');
+                        if(currentPhoneNumberDisplaySpan) currentPhoneNumberDisplaySpan.textContent = currentUser.phone_number || "Not provided";
                         phoneNumberEdit.value = currentUser.phone_number || "";
                         
-                        // profileStatus.textContent = "Profile details saved successfully!"; // OLD
-                        // profileStatus.style.color = "green"; // OLD
-                        showToast("Profile details saved successfully!", "success"); // NEW
+                        showToast("Profile details saved successfully!", "success");
                     } else {
-                        // profileStatus.textContent = `Error: ${responseData.error || 'Failed to save profile.'}`; // OLD
-                        // profileStatus.style.color = "red"; // OLD
-                        showToast(`Error: ${responseData.error || 'Failed to save profile.'}`, "error"); // NEW
+                        console.error('Save profile server error:', responseData); // Log server error object
+                        showToast(`Error: ${responseData.error || 'Failed to save profile.'}`, "error");
                     }
                 } catch (error) {
-                    console.error('Error saving profile details:', error);
-                    // profileStatus.textContent = "An unexpected error occurred while saving profile details."; // OLD
-                    // profileStatus.style.color = "red"; // OLD
-                    showToast("An unexpected error occurred while saving profile details.", "error"); // NEW
+                    console.error('Save profile fetch error:', error); // Log actual fetch error
+                    showToast("An unexpected error occurred while saving profile details. Check console for details.", "error");
                 }
             });
+        }
+
+        // Modal Handling
+        const modal = document.getElementById("instructionsModal");
+        const modalContentDiv = document.getElementById("modal-instructions-content");
+        const closeButton = modal.querySelector(".close-button");
+
+        closeButton.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
         }
     });
 
     function showToast(message, type = 'info', duration = 3000) {
         const existingToast = document.querySelector('.toast-notification');
-        if (existingToast) {
-            existingToast.remove(); // Remove any existing toast first
-        }
+        if (existingToast) { existingToast.remove(); }
 
         const toast = document.createElement('div');
         toast.className = `toast-notification ${type}`;
         toast.textContent = message;
-
         document.body.appendChild(toast);
 
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 100); 
-
+        setTimeout(() => { toast.classList.add('show'); }, 100); 
         setTimeout(() => {
             toast.classList.remove('show');
-            setTimeout(() => {
-                if (toast.parentElement) {
-                    toast.remove();
-                }
-            }, 500); 
+            setTimeout(() => { if (toast.parentElement) { toast.remove(); } }, 500); 
         }, duration);
     }
 
     async function loadListedSpaces() {
         const listedSpacesDiv = document.getElementById('listed-spaces-list');
-        if (!currentUser) { // Should be already handled by DOMContentLoaded check, but good practice
+        if (!currentUser) {
             listedSpacesDiv.innerHTML = '<p>Please login to view your listed spaces.</p>';
             return;
         }
         try {
-            // Note: The API endpoint was defined in spaces.py as /me/spaces, 
-            // and the blueprint is /api. So the path is /api/me/spaces
             const response = await fetch('/api/me/spaces');
             if (!response.ok) {
-                if (response.status === 401) { // Unauthorized
+                if (response.status === 401) {
                      listedSpacesDiv.innerHTML = '<p>Please login to view your listed spaces.</p>';
                      return;
                 }
@@ -281,28 +344,35 @@
                     <p><a href="/static/list_space.html" class="btn btn-primary">List Your First Space!</a></p>
                 `;
             } else {
-                listedSpacesDiv.innerHTML = ''; // Clear loading message
+                listedSpacesDiv.innerHTML = ''; 
                 spaces.forEach(space => {
                     const spaceElement = document.createElement('div');
-                    spaceElement.className = 'card'; // NEW - main container is the card
+                    spaceElement.className = 'card'; 
                     
                     let priceDisplayString = "N/A";
                     if (space.price_amount !== null && space.price_amount !== undefined && space.price_unit) {
                         priceDisplayString = `$${space.price_amount.toFixed(2)} / ${space.price_unit}`;
-                    } else if (space.price) { // Fallback for old data structure
+                    } else if (space.price) { 
                         priceDisplayString = space.price; 
                     }
 
+                    // Displaying images for listed spaces (first image as preview)
+                    let imagesHTML = '';
+                    if (space.images && space.images.length > 0) {
+                        const firstImage = space.images[0];
+                        imagesHTML = `<img src="/uploads/parking_images/${firstImage.image_filename}" alt="Parking Space Image" style="max-width: 100px; max-height: 100px; margin-top: 10px; border-radius: 4px;">`;
+                    }
+
+
                     spaceElement.innerHTML = `
                         <div class="card-body">
-                            <h4 class="card-title">${space.address}</h4> <!-- Using address as title -->
+                            <h4 class="card-title">${space.address}</h4>
                             <p class="card-text">
                                 <strong>Price:</strong> ${priceDisplayString}<br>
                                 <strong>Average Rating:</strong> ${space.average_rating ? space.average_rating.toFixed(1) + '/5' : 'Not rated'}<br>
                                 <strong>Status:</strong> ${space.is_booked ? 'Booked' : 'Available'}
-                                ${space.image_url ? `<br><img src="${space.image_url}" alt="Parking Space Image" style="max-width: 100px; max-height: 100px; margin-top: 10px; border-radius: 4px;">` : ''}
                             </p>
-                            <!-- Future actions like 'Edit Space' or 'View on Map' could go here, perhaps in a .card-footer -->
+                            ${imagesHTML}
                         </div>
                     `;
                     listedSpacesDiv.appendChild(spaceElement);
@@ -316,48 +386,276 @@
 
     async function loadUserBookings() {
         const bookingsListDiv = document.getElementById('bookings-list');
+        if (!bookingsListDiv) { // Guard against element not found
+            console.error("Bookings list container not found.");
+            return;
+        }
+        const modal = document.getElementById("instructionsModal");
+        const modalContentDiv = document.getElementById("modal-instructions-content");
+
         if (!currentUser) {
             bookingsListDiv.innerHTML = '<p>Please login to view your bookings.</p>';
+            // Clear glow if user becomes unauthenticated after page load but before this runs
+            if (myProfileLinkElement) myProfileLinkElement.classList.remove('glow-effect');
+            localStorage.removeItem('newInstructionsAvailable');
+            localStorage.removeItem('newlyBookedSpaceId');
             return;
         }
         try {
-            const response = await fetch('/api/bookings/me'); // Endpoint defined in bookings_bp
+            const response = await fetch('/api/bookings/me'); 
             if (!response.ok) {
-                 if (response.status === 401) { // Unauthorized
+                 if (response.status === 401) { // Should not happen if currentUser is set, but defensive
                      bookingsListDiv.innerHTML = '<p>Please login to view your bookings.</p>';
+                     if (myProfileLinkElement) myProfileLinkElement.classList.remove('glow-effect');
+                     localStorage.removeItem('newInstructionsAvailable');
+                     localStorage.removeItem('newlyBookedSpaceId');
                      return;
                 }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            const bookings = await response.json();
+            const bookings = await response.json(); // This is the 'bookings' array for the logic below
+            
             if (bookings.length === 0) {
                 bookingsListDiv.innerHTML = `
                     <p>You don't have any bookings yet.</p>
                     <p><a href="/static/map_view.html" class="btn btn-primary">Find a Parking Space!</a></p>
                 `;
             } else {
-                bookingsListDiv.innerHTML = ''; // Clear loading message
+                bookingsListDiv.innerHTML = ''; 
                 bookings.forEach(booking => {
                     const bookingElement = document.createElement('div');
-                    bookingElement.className = 'card'; // NEW
+                    bookingElement.className = 'card';
 
+                    let instructionsButtonHTML = '';
+                    const spaceDetails = booking.space_details;
+
+                    if (spaceDetails && spaceDetails.images && spaceDetails.images.length > 0) {
+                        const instructionsButton = document.createElement('button');
+                        instructionsButton.textContent = 'View Instructions';
+                        instructionsButton.className = 'btn btn-secondary btn-instructions'; // Added btn-secondary for styling if needed
+                        instructionsButton.onclick = () => {
+                            modalContentDiv.innerHTML = ''; // Clear previous content
+                            spaceDetails.images.forEach(imgData => {
+                                const imgElement = document.createElement('img');
+                                imgElement.src = `/uploads/parking_images/${imgData.image_filename}`;
+                                imgElement.alt = imgData.caption || 'Parking instruction image';
+                                
+                                const captionElement = document.createElement('p');
+                                captionElement.textContent = imgData.caption || 'No caption provided.';
+                                
+                                modalContentDiv.appendChild(imgElement);
+                                modalContentDiv.appendChild(captionElement);
+                            });
+                            modal.style.display = 'block';
+
+                            // Dismiss notification if this is the newly booked space
+                            const newlyBookedId = localStorage.getItem('newlyBookedSpaceId');
+                            if (newlyBookedId && spaceDetails.id.toString() === newlyBookedId) {
+                                localStorage.removeItem('newInstructionsAvailable');
+                                localStorage.removeItem('newlyBookedSpaceId');
+                                if (myProfileLinkElement) { // Use scoped variable
+                                    myProfileLinkElement.classList.remove('glow-effect');
+                                }
+                            }
+                        };
+                        // Convert button to HTML string to append or append directly
+                        instructionsButtonHTML = instructionsButton.outerHTML;
+                    } else {
+                        instructionsButtonHTML = '<button class="btn btn-instructions" disabled>No Instructions Provided</button>';
+                    }
+                    
+                    let spaceAddress = 'N/A';
+                    if (spaceDetails && spaceDetails.address) {
+                        spaceAddress = spaceDetails.address;
+                    } else if (booking.space_address) { // Fallback for older structure if space_details is missing
+                        spaceAddress = booking.space_address;
+                    }
+
+
+                    // Renaming booking_time to start_time for clarity as per model changes
+                    // Assuming booking.start_time and booking.end_time are now available from to_dict()
+                    let bookingStatusHTML = `<strong>Status:</strong> <span id="status-booking-${booking.id}">${booking.status}</span>`;
+                    let endBookingButtonHTML = '';
+
+                    // Check if booking can be ended
+                    // (e.g., status is 'confirmed' or 'active' and end_time hasn't passed, or backend handles this)
+                    // For simplicity, let's assume 'confirmed' means it's active and can be ended.
+                    if (booking.status === 'confirmed' || booking.status === 'active') {
+                        endBookingButtonHTML = `
+                            <button class="btn btn-warning btn-small end-booking-btn" data-booking-id="${booking.id}" style="margin-top: 10px;">End Booking Now</button>
+                        `;
+                    }
+                    
+                    // Display start_time and the *original* (calculated) end_time from the booking object
+                    // The actual end time might change if the user ends it early.
+                    const startTimeDisplay = booking.start_time ? new Date(booking.start_time).toLocaleString() : 'N/A';
+                    const originalEndTimeDisplay = booking.end_time ? new Date(booking.end_time).toLocaleString() : 'N/A';
+                    const calculatedPriceDisplay = booking.calculated_price !== null ? `$${booking.calculated_price.toFixed(2)}` : 'N/A';
+
+
+                    // Set main structure of bookingElement.innerHTML with a placeholder for the instructions button
                     bookingElement.innerHTML = `
                         <div class="card-body">
-                            <h5 class="card-title">Booking for: ${booking.space_address || 'N/A'}</h5>
+                            <h5 class="card-title">Booking for: ${spaceAddress}</h5>
                             <p class="card-text">
-                                <strong>Booking Time:</strong> ${new Date(booking.booking_time).toLocaleString()}<br>
-                                <strong>Status:</strong> ${booking.status}
+                                <strong>Start Time:</strong> ${startTimeDisplay}<br>
+                                <strong>Scheduled End Time:</strong> ${originalEndTimeDisplay}<br>
+                                <strong>Calculated Price:</strong> ${calculatedPriceDisplay}<br>
+                                ${bookingStatusHTML}
                             </p>
-                            <!-- Future actions like 'View Space Details' or 'Cancel Booking' -->
+                            <div class="instructions-button-placeholder" style="margin-top: 10px; margin-bottom: 10px;"></div>
+                            <div id="end-button-container-${booking.id}">
+                                ${endBookingButtonHTML}
+                            </div>
                         </div>
                     `;
+
+                    // Find the placeholder and append the actual button DOM element
+                    const placeholder = bookingElement.querySelector('.instructions-button-placeholder');
+                    if (placeholder) { // Ensure placeholder exists
+                        if (spaceDetails && spaceDetails.images && spaceDetails.images.length > 0) {
+                            const instructionsButton = document.createElement('button');
+                            instructionsButton.textContent = 'View Instructions';
+                            instructionsButton.className = 'btn btn-secondary btn-instructions';
+                            instructionsButton.onclick = () => {
+                                modalContentDiv.innerHTML = ''; // Clear previous content
+                                spaceDetails.images.forEach(imgData => {
+                                    const imgElement = document.createElement('img');
+                                    imgElement.src = `/uploads/parking_images/${imgData.image_filename}`;
+                                    imgElement.alt = imgData.caption || 'Parking instruction image';
+                                    
+                                    const captionElement = document.createElement('p');
+                                    captionElement.textContent = imgData.caption || 'No caption provided.';
+                                    
+                                    modalContentDiv.appendChild(imgElement);
+                                    modalContentDiv.appendChild(captionElement);
+                                });
+                                modal.style.display = 'block';
+
+                                // Dismiss notification (ensure myProfileLinkElement is accessible)
+                                const newlyBookedId = localStorage.getItem('newlyBookedSpaceId');
+                                if (newlyBookedId && spaceDetails.id.toString() === newlyBookedId && myProfileLinkElement) {
+                                    localStorage.removeItem('newInstructionsAvailable');
+                                    localStorage.removeItem('newlyBookedSpaceId');
+                                    myProfileLinkElement.classList.remove('glow-effect');
+                                }
+                            };
+                            placeholder.appendChild(instructionsButton);
+                        } else {
+                            const disabledButton = document.createElement('button');
+                            disabledButton.className = 'btn btn-instructions';
+                            disabledButton.disabled = true;
+                            disabledButton.textContent = 'No Instructions Provided';
+                            placeholder.appendChild(disabledButton);
+                        }
+                    }
+                    
                     bookingsListDiv.appendChild(bookingElement);
                 });
             }
+
+            // Glow logic after processing all bookings
+            const newInstructionsFlag = localStorage.getItem('newInstructionsAvailable');
+            const newlyBookedIdFromStorage = localStorage.getItem('newlyBookedSpaceId');
+
+            if (myProfileLinkElement) { // Ensure link element is available
+                if (newInstructionsFlag === 'true' && newlyBookedIdFromStorage) {
+                    let activeBookingForGlowFound = false;
+                    if (bookings && bookings.length > 0) {
+                        for (const booking of bookings) {
+                            if (booking.space_details &&
+                                booking.space_details.id.toString() === newlyBookedIdFromStorage &&
+                                (booking.status === 'confirmed' || booking.status === 'active')) {
+                                activeBookingForGlowFound = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (activeBookingForGlowFound) {
+                        myProfileLinkElement.classList.add('glow-effect');
+                    } else {
+                        // No active booking matches the flag, so clear it
+                        localStorage.removeItem('newInstructionsAvailable');
+                        localStorage.removeItem('newlyBookedSpaceId');
+                        myProfileLinkElement.classList.remove('glow-effect');
+                    }
+                } else {
+                    // No flag, ensure glow is off
+                    myProfileLinkElement.classList.remove('glow-effect');
+                }
+            }
+
         } catch (error) {
             console.error('Error fetching user bookings:', error);
             bookingsListDiv.innerHTML = '<p>Error loading your bookings. Please try again later.</p>';
+            // Clear glow on error as well
+            if (myProfileLinkElement) myProfileLinkElement.classList.remove('glow-effect');
+            localStorage.removeItem('newInstructionsAvailable');
+            localStorage.removeItem('newlyBookedSpaceId');
         }
+    }
+
+    // Event listener for "End Booking" buttons using event delegation
+    const bookingsListContainer = document.getElementById('bookings-list');
+    if (bookingsListContainer) {
+        bookingsListContainer.addEventListener('click', async function(event) {
+            if (event.target && event.target.classList.contains('end-booking-btn')) {
+                const button = event.target;
+                const bookingId = button.dataset.bookingId;
+                
+                if (!confirm(`Are you sure you want to end booking ${bookingId}?`)) {
+                    return;
+                }
+
+                button.disabled = true; // Disable button to prevent multiple clicks
+                button.textContent = 'Ending...';
+
+                try {
+                    const response = await fetch(`/api/bookings/${bookingId}/end`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            // CSRF token might be needed if enabled, but typically not for JSON APIs with session auth
+                        }
+                    });
+
+                    const responseData = await response.json();
+
+                    if (response.ok) {
+                        showToast(`Booking ${bookingId} ended successfully.`, 'success');
+                        
+                        // Update UI for this booking
+                        const statusSpan = document.getElementById(`status-booking-${bookingId}`);
+                        if (statusSpan) {
+                            statusSpan.textContent = responseData.status; // Should be 'ended'
+                        }
+                        // Update displayed end time if your UI shows it and it's part of responseData
+                        // e.g., const endTimeDisplay = document.getElementById(`endTime-booking-${bookingId}`);
+                        // if (endTimeDisplay && responseData.end_time) {
+                        //    endTimeDisplay.textContent = new Date(responseData.end_time).toLocaleString();
+                        // }
+
+                        // Remove the "End Booking" button
+                        const buttonContainer = document.getElementById(`end-button-container-${bookingId}`);
+                        if (buttonContainer) {
+                            buttonContainer.innerHTML = ''; // Or set to some confirmation text
+                        }
+                        // Optionally, refresh all bookings: loadUserBookings();
+                        // This is simpler but might be a slightly less smooth UX than targeted update.
+                    } else {
+                        showToast(`Error ending booking: ${responseData.error || 'Unknown error'}`, 'error');
+                        button.disabled = false; // Re-enable button on failure
+                        button.textContent = 'End Booking Now';
+                    }
+                } catch (error) {
+                    console.error('Failed to end booking:', error);
+                    showToast('An unexpected error occurred while trying to end the booking.', 'error');
+                    button.disabled = false; // Re-enable button on error
+                    button.textContent = 'End Booking Now';
+                }
+            }
+        });
     }
     </script>
 </body>

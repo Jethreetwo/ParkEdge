@@ -5,6 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ParkEdge - List Your Space</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        #imagePreviews {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        .preview-container {
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .preview-container img {
+            max-width: 150px;
+            max-height: 150px;
+            margin-bottom: 5px;
+            object-fit: cover;
+        }
+        .preview-container input[type="text"] {
+            width: calc(100% - 10px); /* Adjust for padding */
+            box-sizing: border-box;
+        }
+        #dropZone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            background-color: #f9f9f9;
+        }
+        #dropZone.dragover {
+            background-color: #e9e9e9;
+            border-color: #aaa;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -12,7 +50,7 @@
         <nav>
             <a href="/static/map_view.html">Find Parking</a>
             <a href="/static/list_space.html">List Your Space</a>
-            <a href="/static/profile.html">My Profile</a>
+            <a href="/static/profile.html" id="myProfileLink">My Profile</a>
             <div id="user-auth-section" style="display: inline-block; margin-left: 20px;">
                 <a href="/auth/login/google" id="login-button" style="display:none;">Login with Google</a>
                 <div id="user-info" style="display:none;">
@@ -25,13 +63,13 @@
     </header>
     <main>
         <h2>List Your Driveway/Parking Space</h2>
-        <form id="list-space-form">
+        <form id="list-space-form" enctype="multipart/form-data">
             <div>
                 <label for="address">Address:</label>
                 <input type="text" id="address" name="address" required>
             </div>
             <div>
-                <label for="price_amount">Price Amount:</label>
+                <label for="price_amount_slider">Price Amount:</label>
                 <input type="range" id="price_amount_slider" name="price_amount_slider" min="1" max="100" value="10" style="width: 70%; margin-right: 10px;">
                 <span id="price_amount_display">$10</span> 
                 <small>Set the price for your space.</small>
@@ -43,12 +81,19 @@
                 <input type="radio" id="price_unit_day" name="price_unit" value="day" style="margin-left: 15px;">
                 <label for="price_unit_day">Per Day</label>
             </div>
+            
             <div>
-                <label for="image_url">Image URL (Optional):</label>
-                <input type="text" id="image_url" name="image_url">
-                <small>Enter a direct link to an image of the parking space.</small>
-                <img id="image-preview" src="#" alt="Image Preview" style="display: none; max-width: 200px; max-height: 200px; margin-top: 10px; border: 1px solid #ccc;">
+                <label for="spaceImages">Upload Images:</label>
+                <div id="dropZone">
+                    Drag & drop images here, or click to select files.
+                </div>
+                <input type="file" id="spaceImages" name="images" multiple accept="image/*" style="display: none;">
+                <small>Upload one or more images of the parking space. You can add captions below each preview.</small>
             </div>
+            <div id="imagePreviews">
+                <!-- Image previews and caption inputs will be added here by JavaScript -->
+            </div>
+            
             <button type="submit" class="btn btn-primary" style="font-size: 1em; padding: 12px 20px;">List My Space</button> 
         </form>
         <p id="form-message"></p>
@@ -59,7 +104,7 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            // Auth status update
+            // Auth status update (existing code)
             const loginButton = document.getElementById('login-button');
             const userInfoDiv = document.getElementById('user-info');
             const usernameDisplay = document.getElementById('username-display');
@@ -81,6 +126,9 @@
                     } else {
                         loginButton.style.display = 'inline-block';
                         userInfoDiv.style.display = 'none';
+                        // Redirect to login if not authenticated and trying to list a space
+                        // Consider if this page should be accessible at all without login.
+                        // For now, just updating UI. A backend check on POST is crucial.
                     }
                 })
                 .catch(error => {
@@ -91,83 +139,182 @@
 
             const form = document.getElementById("list-space-form");
             const formMessage = document.getElementById("form-message");
-
             const priceSlider = document.getElementById('price_amount_slider');
             const priceDisplay = document.getElementById('price_amount_display');
-            if(priceSlider && priceDisplay) { // Ensure elements exist
+            
+            if(priceSlider && priceDisplay) {
                 priceSlider.addEventListener('input', function() {
                     priceDisplay.textContent = '$' + this.value;
                 });
             }
 
-            // Image Preview Logic
-            const imageUrlInput = document.getElementById('image_url');
-            const imagePreview = document.getElementById('image-preview');
+            // Image Upload and Preview Logic
+            const spaceImagesInput = document.getElementById('spaceImages');
+            const imagePreviewsDiv = document.getElementById('imagePreviews');
+            const dropZone = document.getElementById('dropZone');
 
-            if (imageUrlInput && imagePreview) {
-                imageUrlInput.addEventListener('input', function() {
-                    const url = this.value;
-                    if (url) {
-                        imagePreview.src = url;
-                        imagePreview.style.display = 'block';
-                    } else {
-                        imagePreview.style.display = 'none';
-                        imagePreview.src = "#"; // Reset src
+            dropZone.addEventListener('click', () => spaceImagesInput.click());
+
+            dropZone.addEventListener('dragover', (event) => {
+                event.preventDefault(); // Prevent default behavior (Prevent file from being opened)
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (event) => {
+                event.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+                    spaceImagesInput.files = event.dataTransfer.files; // Assign dropped files to input
+                    handleFiles(event.dataTransfer.files); // Process files
+                }
+            });
+            
+            spaceImagesInput.addEventListener('change', (event) => {
+                handleFiles(event.target.files);
+            });
+
+            let currentFiles = []; // To store file objects along with their previews and captions
+
+            function handleFiles(files) {
+                imagePreviewsDiv.innerHTML = ''; // Clear previous previews
+                currentFiles = Array.from(files); // Update currentFiles array
+
+                currentFiles.forEach((file, index) => {
+                    if (!file.type.startsWith('image/')){ return; } // Skip non-images
+
+                    const previewContainer = document.createElement('div');
+                    previewContainer.classList.add('preview-container');
+
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    img.onload = () => {
+                        URL.revokeObjectURL(img.src); // Free memory
                     }
-                });
+                    
+                    const captionInput = document.createElement('input');
+                    captionInput.type = 'text';
+                    captionInput.name = `caption_${index}`; // Name for backend
+                    captionInput.placeholder = `Caption for image ${index + 1}`;
+                    captionInput.dataset.index = index; // Store index for later retrieval
 
-                imagePreview.onerror = function() {
-                    imagePreview.style.display = 'none';
-                    imagePreview.src = "#"; // Reset src to avoid repeated error events
-                    console.error("Image preview failed to load for URL: " + this.src);
-                    // Optionally, show an alert or a more user-friendly message in formMessage
-                    // For now, just console log and hide.
-                };
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'Remove';
+                    removeButton.type = 'button'; // Important: prevent form submission
+                    removeButton.onclick = () => {
+                        // Remove from currentFiles array
+                        currentFiles.splice(index, 1);
+                        // Re-render previews with updated currentFiles
+                        // This also means re-assigning files to the input element if possible,
+                        // or managing the FormData construction carefully.
+                        // For simplicity now, just re-rendering previews.
+                        // The file input itself won't reflect this removal directly in its UI,
+                        // but our `currentFiles` array will be the source of truth for submission.
+                        renderPreviewsFromCurrentFiles();
+                    };
+
+                    previewContainer.appendChild(img);
+                    previewContainer.appendChild(captionInput);
+                    previewContainer.appendChild(removeButton);
+                    imagePreviewsDiv.appendChild(previewContainer);
+                });
             }
+            
+            function renderPreviewsFromCurrentFiles() {
+                imagePreviewsDiv.innerHTML = ''; // Clear existing previews
+                const newFileObjects = [];
+
+                currentFiles.forEach((file, index) => {
+                    if (!file.type.startsWith('image/')){ return; }
+
+                    const previewContainer = document.createElement('div');
+                    previewContainer.classList.add('preview-container');
+
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    img.onload = () => { URL.revokeObjectURL(img.src); }
+                    
+                    const captionInput = document.createElement('input');
+                    captionInput.type = 'text';
+                    captionInput.name = `caption_${index}`;
+                    captionInput.placeholder = `Caption for image ${index + 1}`;
+                    captionInput.dataset.index = index;
+                    // Preserve existing caption if available (e.g., if a file was removed and we are re-rendering)
+                    // This part needs more robust state management for captions if they are edited before removal.
+                    // For now, captions will reset if a file is removed.
+
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'Remove';
+                    removeButton.type = 'button';
+                    removeButton.onclick = () => {
+                        currentFiles.splice(index, 1);
+                        renderPreviewsFromCurrentFiles(); // Recursive call to re-render
+                    };
+
+                    previewContainer.appendChild(img);
+                    previewContainer.appendChild(captionInput);
+                    previewContainer.appendChild(removeButton);
+                    imagePreviewsDiv.appendChild(previewContainer);
+                    newFileObjects.push(file);
+                });
+                // Update the actual file input's files if possible (difficult and not fully supported across browsers)
+                // A common approach is to build FormData from `currentFiles` directly at submission time.
+                // The DataTransfer object can be used for this, but it's a bit complex for this simple case.
+                // For now, spaceImagesInput.files will hold the initially selected/dropped files.
+                // We will rely on `currentFiles` for constructing FormData.
+            }
+
 
             form.addEventListener("submit", (event) => {
                 event.preventDefault();
                 formMessage.textContent = "Submitting...";
+                formMessage.style.color = "inherit";
 
-                // No longer using FormData directly for all fields due to slider/radio
-                const address = document.getElementById('address').value;
-                const imageUrl = document.getElementById('image_url').value;
-                const priceAmount = document.getElementById('price_amount_slider').value;
-                const priceUnit = document.querySelector('input[name="price_unit"]:checked').value;
 
-                const data = {
-                    address: address,
-                    price_amount: parseFloat(priceAmount),
-                    price_unit: priceUnit
-                };
+                const formData = new FormData();
+                formData.append('address', document.getElementById('address').value);
+                formData.append('price_amount', document.getElementById('price_amount_slider').value);
+                formData.append('price_unit', document.querySelector('input[name="price_unit"]:checked').value);
+
+                // Append files from our managed `currentFiles` array
+                currentFiles.forEach((file, index) => {
+                    formData.append('images', file, file.name); // Add file with its name
+                });
                 
-                if (imageUrl) { // Only include image_url if provided and not empty
-                    data.image_url = imageUrl;
-                }
+                // Append captions from the input fields in the previews
+                const captionInputs = imagePreviewsDiv.querySelectorAll('input[type="text"]');
+                captionInputs.forEach(input => {
+                    // The name attribute is already 'caption_X', which is what the backend expects.
+                    // We just need to ensure the index in the name matches the file order if files were removed.
+                    // The renderPreviewsFromCurrentFiles function re-indexes captions correctly.
+                    formData.append(input.name, input.value);
+                });
 
-                fetch("/api/spaces", {
+
+                fetch("/api/spaces", { // Ensure this endpoint matches your backend route for creating spaces
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(data)
+                    // "Content-Type": "multipart/form-data" is automatically set by browser when using FormData
+                    body: formData 
                 })
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(err => {
+                            // Try to parse backend error message
                             throw new Error(err.error || `HTTP error! status: ${response.status}`);
                         });
                     }
                     return response.json();
                 })
                 .then(newSpace => {
-                    formMessage.textContent = `Space listed successfully! Address: ${newSpace.address}`;
+                    formMessage.textContent = `Space listed successfully! Address: ${newSpace.address}. ID: ${newSpace.id}`;
                     formMessage.style.color = "green";
                     form.reset();
-                    if(imagePreview) { // Also reset image preview on successful form submission
-                        imagePreview.style.display = 'none';
-                        imagePreview.src = "#";
-                    }
+                    imagePreviewsDiv.innerHTML = ''; // Clear previews
+                    currentFiles = []; // Clear the file array
+                    // spaceImagesInput.value = ''; // Reset file input (may not work reliably for all browsers)
                 })
                 .catch(error => {
                     console.error("Error listing space:", error);
@@ -179,4 +326,3 @@
     </script>
 </body>
 </html>
-
