@@ -296,12 +296,12 @@
         const closeButton = modal.querySelector(".close-button");
 
         closeButton.onclick = function() {
-            modal.style.display = "none";
+            modal.classList.remove('show');
         }
 
         window.onclick = function(event) {
             if (event.target == modal) {
-                modal.style.display = "none";
+                modal.classList.remove('show');
             }
         }
     });
@@ -496,7 +496,7 @@
                                     modalContentDiv.appendChild(imgElement);
                                     modalContentDiv.appendChild(captionElement);
                                 });
-                                modal.style.display = 'block';
+                                modal.classList.add('show');
 
                                 // Dismiss notification (ensure myProfileLinkElement is accessible)
                                 const newlyBookedId = localStorage.getItem('newlyBookedSpaceId');
