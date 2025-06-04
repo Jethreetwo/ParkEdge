@@ -426,43 +426,9 @@
                     const bookingElement = document.createElement('div');
                     bookingElement.className = 'card';
 
-                    let instructionsButtonHTML = '';
                     const spaceDetails = booking.space_details;
 
-                    if (spaceDetails && spaceDetails.images && spaceDetails.images.length > 0) {
-                        const instructionsButton = document.createElement('button');
-                        instructionsButton.textContent = 'View Instructions';
-                        instructionsButton.className = 'btn btn-secondary btn-instructions'; // Added btn-secondary for styling if needed
-                        instructionsButton.onclick = () => {
-                            modalContentDiv.innerHTML = ''; // Clear previous content
-                            spaceDetails.images.forEach(imgData => {
-                                const imgElement = document.createElement('img');
-                                imgElement.src = `/uploads/parking_images/${imgData.image_filename}`;
-                                imgElement.alt = imgData.caption || 'Parking instruction image';
-                                
-                                const captionElement = document.createElement('p');
-                                captionElement.textContent = imgData.caption || 'No caption provided.';
-                                
-                                modalContentDiv.appendChild(imgElement);
-                                modalContentDiv.appendChild(captionElement);
-                            });
-                            modal.style.display = 'block';
-
-                            // Dismiss notification if this is the newly booked space
-                            const newlyBookedId = localStorage.getItem('newlyBookedSpaceId');
-                            if (newlyBookedId && spaceDetails.id.toString() === newlyBookedId) {
-                                localStorage.removeItem('newInstructionsAvailable');
-                                localStorage.removeItem('newlyBookedSpaceId');
-                                if (myProfileLinkElement) { // Use scoped variable
-                                    myProfileLinkElement.classList.remove('glow-effect');
-                                }
-                            }
-                        };
-                        // Convert button to HTML string to append or append directly
-                        instructionsButtonHTML = instructionsButton.outerHTML;
-                    } else {
-                        instructionsButtonHTML = '<button class="btn btn-instructions" disabled>No Instructions Provided</button>';
-                    }
+                    
                     
                     let spaceAddress = 'N/A';
                     if (spaceDetails && spaceDetails.address) {

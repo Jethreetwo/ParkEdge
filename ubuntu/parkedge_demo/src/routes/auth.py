@@ -228,8 +228,10 @@ def status():
             "authenticated": True,
             "user": {
                 "username": current_user.username,
-                "email": current_user.email, 
+                "email": current_user.email,
                 "profile_pic": current_user.profile_pic,
+                "payment_info": current_user.payment_info,
+                "phone_number": current_user.phone_number,
             }
         }
     else:
