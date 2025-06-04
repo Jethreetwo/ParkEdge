@@ -626,3 +626,14 @@ input[type="range"]#max-price-slider:active::-moz-range-thumb {
     box-shadow: 0 0 15px #ffeb3b, 0 0 20px #ffeb3b; /* Adjusted spread for a bit more bloom */
   }
 }
+
+/* Make Leaflet popups more compact */
+.leaflet-popup-content {
+  max-height: 250px;
+  overflow-y: auto;
+  font-size: 0.9em;
+}
+
+.leaflet-popup {
+  max-width: 260px;
+}

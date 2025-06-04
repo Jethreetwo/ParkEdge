@@ -1,4 +1,6 @@
 import requests
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 from flask import (
     Blueprint,
     request,
@@ -61,53 +63,48 @@ def create_space():
 
     address = data["address"]
 
-    # Geocoding
-    geocode_url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(address)}&format=json&limit=1&addressdetails=1"
-    headers = {"User-Agent": "ParkEdge Demo Application/1.0"}  # Essential for Nominatim
-
+    # Geocoding with geopy first, falling back to direct request
+    geolocator = Nominatim(user_agent="ParkEdgeDemoApp")
     latitude = None
     longitude = None
 
     try:
-        response = requests.get(geocode_url, headers=headers, timeout=10)
-        response.raise_for_status()
-        results = response.json()
-
-        if results and isinstance(results, list) and len(results) > 0:
-            selected_result = results[0]
-            latitude = selected_result.get("lat")
-            longitude = selected_result.get("lon")
-
-            if not latitude or not longitude:
-                raise ValueError(
-                    "Latitude or Longitude not found in geocoding response."
-                )
-
-            latitude = float(latitude)
-            longitude = float(longitude)
+        location = geolocator.geocode(address, timeout=10)
+        if location:
+            latitude, longitude = location.latitude, location.longitude
         else:
+            raise ValueError("No result from geopy")
+    except (GeocoderServiceError, GeocoderTimedOut, ValueError) as e:
+        current_app.logger.warning(f"geopy geocoding failed: {e}; falling back to requests")
+        geocode_url = (
+            f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(address)}&format=json&limit=1&addressdetails=1"
+        )
+        headers = {"User-Agent": "ParkEdge Demo Application/1.0"}
+        try:
+            response = requests.get(geocode_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            results = response.json()
+            if results and isinstance(results, list) and len(results) > 0:
+                selected_result = results[0]
+                latitude = float(selected_result.get("lat"))
+                longitude = float(selected_result.get("lon"))
+            else:
+                return (
+                    jsonify({"error": "Could not geocode address. No results found."}),
+                    400,
+                )
+        except requests.exceptions.RequestException as req_err:
+            current_app.logger.error(f"Geocoding request failed: {req_err}")
             return (
-                jsonify({"error": "Could not geocode address. No results found."}),
+                jsonify({"error": "Geocoding service request failed. Please try again later."}),
+                503,
+            )
+        except (ValueError, KeyError) as parse_err:
+            current_app.logger.error(f"Error processing geocoding response: {parse_err}")
+            return (
+                jsonify({"error": "Error processing geocoding result. Ensure address is specific."}),
                 400,
             )
-    except requests.exceptions.RequestException as e:
-        print(f"Geocoding request failed: {e}")
-        return (
-            jsonify(
-                {"error": "Geocoding service request failed. Please try again later."}
-            ),
-            503,
-        )
-    except (ValueError, KeyError) as e:
-        print(f"Error processing geocoding response: {e}")
-        return (
-            jsonify(
-                {
-                    "error": "Error processing geocoding result. Ensure address is specific."
-                }
-            ),
-            400,
-        )
 
     new_space = ParkingSpace(
         address=address,
