@@ -98,3 +98,4 @@ wadllib==1.3.6
 Werkzeug==3.1.3
 zipp==3.21.0
 zstandard==0.23.0
+geopy==2.3.0
